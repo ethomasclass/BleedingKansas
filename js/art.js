@@ -484,6 +484,8 @@
       g.save();
       g.translate(f * FW, 0);
       if (id === "senator") drawGoatSprite(g, f);
+      else if (id === "chicken") drawChickenSprite(g, f);
+      else if (id === "dog") drawDogSprite(g, f);
       else if (kind === "walk") drawFigure(g, L, f < 3 ? "front" : "back", [-1, 0, 1][f % 3]);
       else drawFigure(g, L, "front", 0, f === 1);
       g.restore();
@@ -557,6 +559,35 @@
     g.beginPath(); g.ellipse(74, 44 + (f ? 2 : 0), 12, 14, 0.3, 0, Math.PI * 2); g.fill(); g.stroke();
     g.strokeStyle = "#8a7a62"; g.lineWidth = 4; g.beginPath(); g.moveTo(70, 32); g.lineTo(64, 20); g.moveTo(78, 32); g.lineTo(80, 20); g.stroke();
     g.fillStyle = "#f1ead8"; g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.rect(78, 52, 16, 12); g.fill(); g.stroke();
+    g.restore();
+  }
+
+  function drawChickenSprite(g, f) {
+    // f = 1 is pecking
+    g.save(); g.translate(0, 96); g.lineJoin = "round"; g.strokeStyle = INK; g.lineWidth = 4;
+    g.fillStyle = "#c89a3c";
+    g.beginPath(); g.moveTo(40, 66); g.lineTo(40, 78); g.moveTo(54, 66); g.lineTo(54, 78); g.stroke();
+    g.fillStyle = "#f6f1e6";
+    g.beginPath(); g.ellipse(46, 50, 26, 18, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(22, 46); g.lineTo(12, 30); g.lineTo(28, 38); g.closePath(); g.fill(); g.stroke();
+    const hy = f ? 52 : 26, hx = f ? 76 : 70;
+    g.beginPath(); g.arc(hx, hy, 12, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = "#c0392b"; g.beginPath(); g.arc(hx - 2, hy - 13, 5, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#e8a33a"; g.beginPath(); g.moveTo(hx + 10, hy - 2); g.lineTo(hx + 20, hy + 2); g.lineTo(hx + 10, hy + 5); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = INK; g.beginPath(); g.arc(hx + 3, hy - 2, 2.2, 0, Math.PI * 2); g.fill();
+    g.restore();
+  }
+  function drawDogSprite(g, f) {
+    // f = 1 is sitting with the tail up
+    g.save(); g.translate(0, 60); g.lineJoin = "round"; g.strokeStyle = INK; g.lineWidth = 4;
+    g.fillStyle = "#a8743f";
+    [24, 36, 58, 70].forEach((x, i) => { g.beginPath(); g.rect(x - 4, f && i < 2 ? 82 : 76, 8, f && i < 2 ? 18 : 30); g.fill(); g.stroke(); });
+    g.beginPath(); g.ellipse(46, 74, 30, 15, f ? -0.25 : 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.moveTo(18, 70); g.quadraticCurveTo(4, f ? 46 : 62, 10, f ? 40 : 58); g.stroke();
+    g.beginPath(); g.ellipse(74, 54, 14, 12, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.beginPath(); g.ellipse(86, 60, 9, 7, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = "#6b4526"; g.beginPath(); g.ellipse(66, 46, 6, 11, -0.4, 0, Math.PI * 2); g.fill(); g.stroke();
+    g.fillStyle = INK; g.beginPath(); g.arc(92, 57, 3, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(77, 51, 2.4, 0, Math.PI * 2); g.fill();
     g.restore();
   }
 

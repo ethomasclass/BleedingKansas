@@ -154,6 +154,8 @@
 
     pruitt: {
       name: "Silas Pruitt", role: "Tavern keeper", place: "tavern", expr: ["scowl", "smug"],
+      events: [{ id: "offer", requires: ["c4"], choice: "offer" }],
+      revisit: [{ when: { offer: "refuse" }, lines: [["pruitt", "scowl", "Creek's that way."]] }],
       greeting: [
         ["pruitt", "scowl", "We're closed."],
         ["you", "", "The sign says open."],
@@ -307,6 +309,10 @@
 
     grayson: {
       name: "Thomas Grayson", role: "Blacksmith", place: "forge", expr: ["wry", "serious"],
+      revisit: [
+        { when: { witness: "name" }, lines: [["grayson", "serious", "I meant what I said. I'm packing tonight."]] },
+        { when: { witness: "protect" }, lines: [["grayson", "wry", "Still here. Still nobody's witness."]] },
+      ],
       greeting: [
         ["grayson", "wry", "Somebody from Washington, asking questions, in my shop. You lost?"],
         ["you", "", "I'm trying to find out what happened to Reese Brown."],
@@ -353,6 +359,7 @@
             ["grayson", "wry", "Tell who? The territorial officials around here are friends with the Rangers. The free-state government has no courts. And nobody from either one has knocked on my door. Until you."],
           ],
           add: [["clue", "c6"]],
+          choice: "witness",
         },
         {
           id: "decide", label: "Who should decide about slavery?", decide: true,
@@ -415,6 +422,14 @@
 
     bell: {
       name: "Horace Bell", role: "Newspaper editor", place: "print", expr: ["shouting", "scheming"],
+      events: [{
+        id: "stew", when: { offer: "take" },
+        lines: [
+          ["bell", "scheming", "A little bird says you're eating free at the tavern."],
+          ["bell", "shouting", "HEADLINE: COMMITTEE INVESTIGATOR BOUGHT WITH STEW!"],
+          ["bell", "scheming", "Relax. I won't print it. Unless it's a slow news week. It's always a slow news week."],
+        ],
+      }],
       greeting: [
         ["bell", "shouting", "EXTRA! EXTRA! COMMITTEE INVESTIGATOR WALKS INTO PRINT SHOP!"],
         ["you", "", "You don't have to shout."],
@@ -548,6 +563,45 @@
     { name: "The Border Bugle", side: "Proslavery paper", headline: "KILLER ON THE RUN!", deck: "Reese Brown shot a lawful citizen at an illegal election, then fled." },
   ];
 
+  // ---------- Choices that stick ----------
+  const choices = {
+    offer: {
+      title: "Pruitt's offer",
+      lines: [
+        ["pruitt", "smug", "Heard you've been asking Pike about his back room."],
+        ["pruitt", "", "Tell you what, Washington. Free supper here every night. For life."],
+        ["pruitt", "smug", "All you have to do is forget the word \"Rangers\" when you write your little report."],
+      ],
+      options: [
+        { id: "take", label: "Take the deal",
+          lines: [["you", "", "...What's for supper?"], ["pruitt", "smug", "Stew. It's always stew. Pleasure doing business."]],
+          outcome: "Horace Bell printed the stew story after all. Congress laughed at your report and believed less of it. Pressure works, even when it's only stew." },
+        { id: "refuse", label: "Turn him down",
+          lines: [["you", "", "My report goes to Congress. All of it."], ["pruitt", "scowl", "Then you can eat at the creek with the goat."]],
+          outcome: "Pruitt banned you from the tavern. Your report named the Rangers in full." },
+      ],
+      none: "You never visited Pruitt after Pike's back room, so he never made his offer.",
+    },
+    witness: {
+      title: "Protect the witness",
+      lines: [
+        ["grayson", "serious", "Now you know what I saw. Here's my problem."],
+        ["grayson", "", "If you put my name in that report, the Rangers will read it before Congress does."],
+        ["grayson", "wry", "Your committee goes home to Washington. I stay here."],
+      ],
+      options: [
+        { id: "name", label: "Name Thomas Grayson as your witness",
+          lines: [["you", "", "Congress needs to know who saw it. Your name makes it real."], ["grayson", "serious", "Then I'd better start packing."]],
+          outcome: "Your report was hard to argue with. A month later, the forge was shut, and Thomas Grayson had left Easton. The person who told the truth paid the price." },
+        { id: "protect", label: "Write \"a witness who asked not to be named\"",
+          lines: [["you", "", "I'll write that a witness asked not to be named."], ["grayson", "wry", "Thank you. Though I bet Congress believes a nameless witness about as much as they'd believe me."]],
+          outcome: "Grayson kept his forge. But some in Congress called your \"unnamed witness\" made up, and the Rangers' friends agreed loudly." },
+      ],
+      none: "You never learned what Grayson saw. The most important witness in town went unheard.",
+    },
+  };
+  const choicesClosing = "Telling the truth in Kansas cost something. Who paid?";
+
   // ---------- The empty chair ----------
   const chair = {
     label: "The empty chair",
@@ -659,5 +713,5 @@
     next: "The fighting in Kansas went on for years. Kansas finally joined the Union as a free state in January 1861. A few months later, the Civil War began.",
   };
 
-  window.GAME_DATA = { clues, history, who, characters, extras, papers, chair, intro, nextLead, solve, reality };
+  window.GAME_DATA = { clues, history, who, characters, extras, papers, chair, intro, nextLead, solve, reality, choices, choicesClosing };
 })();

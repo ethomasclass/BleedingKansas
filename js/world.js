@@ -31,18 +31,21 @@ window.World = (function () {
   };
   // Where each character stands.
   const PEOPLE = {
-    mrsbrown: { x: -26.6, z: -4.2, place: "cabin" },
-    whitcomb: { x: -13.6, z: -3.6, place: "polling" },
-    pruitt:   { x: 8.6,   z: -3.4, place: "tavern" },
-    pike:     { x: 15.4,  z: -3.4, place: "store" },
-    tuttle:   { x: -14.4, z: 11.4, place: "post" },
-    grayson:  { x: 7.4,   z: 9.4,  place: "forge" },
-    bell:     { x: 16.4,  z: 11.4, place: "print" },
-    hale:     { x: -26.4, z: 11.4, place: "school" },
-    cobb:     { x: -5.2,  z: 4.6,  place: "wagon" },
-    byrne:    { x: 29.2,  z: 3.0,  place: "ferry" },
+    mrsbrown: { x: -26.6, z: -4.2, place: "cabin",   roam: [[0, 0], [1.6, 0.6], [-0.4, 1.2]] },
+    whitcomb: { x: -13.6, z: -3.6, place: "polling", roam: [[0, 0], [-0.8, 0.1]] },
+    pruitt:   { x: 8.6,   z: -3.4, place: "tavern",  roam: [[0, 0], [-1.2, 0.4], [0.8, 0.6]] },
+    pike:     { x: 15.4,  z: -3.4, place: "store",   roam: [[0, 0], [1.6, 0], [0.6, 0.8]] },
+    tuttle:   { x: -14.4, z: 11.4, place: "post",    roam: [[0, 0], [-1.4, 0.4], [0.6, 0.8]] },
+    grayson:  { x: 7.4,   z: 9.4,  place: "forge",   roam: [[0, 0]], works: true },
+    bell:     { x: 16.4,  z: 11.4, place: "print",   roam: [[0, 0], [1.4, 0.3], [-0.8, 0.7]] },
+    hale:     { x: -26.4, z: 11.4, place: "school",  roam: [[0, 0], [1.2, 0.6], [-0.6, 0.9]] },
+    cobb:     { x: -5.2,  z: 4.6,  place: "wagon",   roam: [[0, 0], [1.2, 0.4], [0.4, 1.0]] },
+    byrne:    { x: 29.2,  z: 3.0,  place: "ferry",   roam: [[0, 0], [1.4, -1.2], [-0.6, 0.8]] },
   };
   const CHAIR = { x: -18.5, z: -4.2 };
+  // chimney tops [x, y, z] and lantern posts [x, z]
+  const CHIMNEYS = [[-26.1, 5.3, -8.6], [4.4, 5.7, 6.1], [8.5, 7.1, -9.5]];
+  const LANTERNS = [[-22, -2.6], [-10, -2.6], [3.2, -2.6], [12.5, -2.6], [24, -2.6], [-22, 13.4], [-10, 13.4], [12.5, 13.4], [24, 13.4]];
   const START = { x: -28, z: 0 };
 
   // ---------- State ----------
@@ -58,6 +61,7 @@ window.World = (function () {
   const keys = {};
   let path = [];
   let pendingTarget = null;
+  let retries = 0;
   let paused = true;
   let onInteract = () => {};
   let onNear = () => {};
@@ -272,6 +276,7 @@ window.World = (function () {
       // door and windows on the front
       box(grp, 1.1, 2.1, 0.12, trimMat, b.style === "log" ? -0.6 : 0, 0, fz + 0.04, false);
       const glass = own(toon("#bcd9e6"));
+      glass.userData.glass = true;
       const winX = b.w > 6.5 ? [-b.w / 2 + 1.3, b.w / 2 - 1.3] : [-b.w / 2 + 1.1, b.w / 2 - 1.1];
       winX.forEach((x) => { box(grp, 1.0, 1.0, 0.12, glass, x, 1.2, fz + 0.04); });
       box(grp, 0.12, 1.0, 1.0, glass, fx + 0.04, 1.2, 0);
@@ -281,6 +286,7 @@ window.World = (function () {
     const roof = gable(grp, b.w + 0.6, b.d + 0.8, rise, roofMat, 0, b.h, 0);
     roof.userData.target = id; clickables.push(roof);
     if (b.style === "log") box(grp, 0.8, 1.8, 0.8, own(toon("#8b8379")), b.w / 2 - 1.1, b.h + 0.4, -0.6);
+    if (id === "tavern") box(grp, 0.8, 2.6, 0.8, own(toon("#8b8379")), 2.5, b.h, -1);
     if (b.falseFront) {
       const ff = box(grp, b.w + 0.2, b.h + 2.0, 0.25, wallMat, 0, 0, fz + 0.15);
       ff.userData.target = id; clickables.push(ff);
@@ -313,6 +319,8 @@ window.World = (function () {
       if (o.isLineSegments) own.transparent = true;
       o.material = own;
       mats.push(own);
+      if (own.userData.glass) windowMats.push(own);
+      if (o.material.isMeshBasicMaterial && !o.isLineSegments) tintMats.push(own);
     });
     fadeables.push({ group: grp, materials: mats, opacity: 1, id });
     return grp;
@@ -398,7 +406,7 @@ window.World = (function () {
     [[-30, -18], [-26, -19], [14, -20], [18, -19.5]].forEach(([x, z]) => {
       const h = new T.Mesh(new T.ConeGeometry(1.3, 2.2, 8), hay); h.position.set(x, 1.1, z); h.castShadow = true; scene.add(h); addEdges(h, scene); post(x, z, 1.2);
     });
-    const cornM = new T.InstancedMesh(new T.ConeGeometry(0.25, 1.4, 5), toon("#7fa04a"), 120);
+    const cornM = new T.InstancedMesh(new T.ConeGeometry(0.25, 1.4, 5), swayMaterial("#7fa04a"), 120);
     let n = 0;
     for (let r = 0; r < 6; r++) for (let c = 0; c < 20; c++) {
       m4.compose(ps.set(-21 + c * 0.85, 0.7, -17 - r * 1.1), q.identity(), sc.set(1, 1, 1)); cornM.setMatrixAt(n++, m4);
@@ -420,7 +428,7 @@ window.World = (function () {
     [-4.9, -3.5].forEach((x) => box(scene, 0.1, 1.9, 0.1, dark, x, 0, -4.4, false));
 
     // grass tufts
-    const tuftM = new T.InstancedMesh(new T.ConeGeometry(0.12, 0.45, 4), toon("#7c9a48"), 420);
+    const tuftM = new T.InstancedMesh(new T.ConeGeometry(0.12, 0.45, 4), swayMaterial("#7c9a48"), 420);
     let t = 0, s2 = 11;
     const rnd = () => ((s2 = (s2 * 16807) % 2147483647) / 2147483647);
     while (t < 420) {
@@ -429,6 +437,22 @@ window.World = (function () {
       m4.compose(ps.set(x, 0.2, z), q.identity(), sc.set(1, 1 + rnd(), 1)); tuftM.setMatrixAt(t++, m4);
     }
     scene.add(tuftM);
+
+    // flower clumps by the front corners of buildings
+    const fl = [];
+    Object.values(BUILDINGS).forEach((b) => {
+      [-1, 1].forEach((side) => {
+        const cx = b.x + side * (b.w / 2 + 0.5), cz = b.z + b.d / 2 - 0.3;
+        for (let i = 0; i < 6; i++) fl.push([cx + (rnd() - 0.5) * 0.9, cz + (rnd() - 0.5) * 0.9]);
+      });
+    });
+    const flM = new T.InstancedMesh(new T.IcosahedronGeometry(0.13, 0), toon("#ffffff"), fl.length);
+    const flColors = ["#d9534f", "#f2c14e", "#f4efe6", "#b06ab3"];
+    fl.forEach(([x, z], i) => {
+      m4.compose(ps.set(x, 0.25 + rnd() * 0.12, z), q.identity(), sc.set(1, 1, 1)); flM.setMatrixAt(i, m4);
+      flM.setColorAt(i, new T.Color(flColors[i % 4]));
+    });
+    scene.add(flM);
   }
 
   function buildShack(x, z) {
@@ -455,15 +479,7 @@ window.World = (function () {
     }
     return false;
   }
-  function blocked(x, z) {
-    if (blockedRaw(x, z, PR)) return true;
-    for (const id in people) {
-      const p = people[id];
-      const dx = x - p.x, dz = z - p.z;
-      if (dx * dx + dz * dz < 0.55 * 0.55) return true;
-    }
-    return false;
-  }
+  function blocked(x, z) { return blockedRaw(x, z, PR); }
 
   // ---------- Navigation grid + A* ----------
   const CELL = 0.5;
@@ -475,10 +491,6 @@ window.World = (function () {
     for (let j = 0; j < gridH; j++) for (let i = 0; i < gridW; i++) {
       const x = BOUNDS.minX + (i + 0.5) * CELL, z = BOUNDS.minZ + (j + 0.5) * CELL;
       grid[j * gridW + i] = blockedRaw(x, z, PR + 0.05) ? 1 : 0;
-      for (const id in PEOPLE) {
-        const p = PEOPLE[id];
-        if ((x - p.x) * (x - p.x) + (z - p.z) * (z - p.z) < (0.55 + PR) * (0.55 + PR)) grid[j * gridW + i] = 1;
-      }
     }
   }
   const cellOf = (x, z) => [Math.floor((x - BOUNDS.minX) / CELL), Math.floor((z - BOUNDS.minZ) / CELL)];
@@ -571,6 +583,7 @@ window.World = (function () {
     const geo = new T.PlaneGeometry(h * aspect, h * BILLBOARD_STRETCH);
     geo.translate(0, (h * BILLBOARD_STRETCH) / 2, 0);
     const mat = new T.MeshBasicMaterial({ map: frames[0].r, transparent: true, alphaTest: 0.4, side: T.DoubleSide });
+    tintMats.push(mat);
     const mesh = new T.Mesh(geo, mat);
     mesh.rotation.y = Math.PI / 4;
     mesh.castShadow = false;
@@ -589,7 +602,8 @@ window.World = (function () {
     const A = window.ART;
     const aspect = A.FW / A.FH;
     Object.entries(PEOPLE).forEach(([id, p]) => {
-      const holder = { x: p.x, z: p.z, id, place: p.place, frames: null, t: Math.random() * 2 };
+      const spots = p.roam.map(([dx, dz]) => [p.x + dx, p.z + dz]).filter(([x, z]) => !blockedRaw(x, z, 0.3));
+      const holder = { x: p.x, z: p.z, id, place: p.place, frames: null, t: Math.random() * 2, spots, tx: p.x, tz: p.z, wait: 1 + Math.random() * 3, face: "r", works: p.works };
       people[id] = holder;
       loadStrip(`art/sprites/${id}-idle.png`, 2, () => A.spriteStrip(id, "idle")).then(({ img, count }) => {
         holder.frames = framesFrom(img, count);
@@ -606,9 +620,9 @@ window.World = (function () {
       const bb = makeBillboard(frames, img.width / count / img.height || aspect, 0.9);
       bb.grp.position.set(goat.x, 0, goat.z);
       bb.mesh.userData.target = "byrne"; clickables.push(bb.mesh);
-      people._goat = { frames, mesh: bb.mesh, t: 0.5, x: goat.x, z: goat.z, decor: true };
+      goatState = { frames, mesh: bb.mesh, grp: bb.grp, t: 0.5, x: goat.x, z: goat.z, face: "r" };
     });
-    post(goat.x, goat.z, 0.4);
+    buildCritters();
 
     // the player
     player = { x: START.x, z: START.z, dir: { x: 0, z: 1 }, walkT: 0, moving: false };
@@ -627,6 +641,215 @@ window.World = (function () {
       const bb = makeBillboard(ff, aspectP);
       player.grp = bb.grp; player.mesh = bb.mesh;
       player.grp.position.set(player.x, 0, player.z);
+    });
+  }
+
+  // ---------- A living town ----------
+  let goatState = null, goatFollow = false;
+  const trail = [];
+  const critters = [];
+  function buildCritters() {
+    const A = window.ART;
+    const flock = (n, box) => {
+      for (let i = 0; i < n; i++) {
+        const x = box[0] + Math.random() * (box[1] - box[0]), z = box[2] + Math.random() * (box[3] - box[2]);
+        critters.push({ kind: "chicken", box, x, z, tx: x, tz: z, wait: Math.random() * 3, speed: 1.1, t: Math.random(), face: "r" });
+      }
+    };
+    flock(4, [-31, -24, -4.6, -2.4]);
+    flock(3, [22.5, 26, -5.5, -2.6]);
+    critters.push({ kind: "dog", box: [-20, 20, -1.6, 13], x: -3, z: 0.5, tx: -3, tz: 0.5, wait: 2, speed: 2.4, t: 0, face: "r" });
+    const strips = { chicken: A.spriteStrip("chicken", "idle"), dog: A.spriteStrip("dog", "idle") };
+    const frames = { chicken: framesFrom(strips.chicken, 2), dog: framesFrom(strips.dog, 2) };
+    critters.forEach((c) => {
+      const bb = makeBillboard(frames[c.kind], A.FW / A.FH, c.kind === "dog" ? 0.62 : 0.42);
+      c.frames = frames[c.kind]; c.mesh = bb.mesh; c.grp = bb.grp;
+      c.grp.position.set(c.x, 0, c.z);
+    });
+  }
+  function stepCritters(dt) {
+    critters.forEach((c) => {
+      c.t += dt;
+      const dx = c.tx - c.x, dz = c.tz - c.z, d = Math.hypot(dx, dz);
+      let moving = false;
+      if (d > 0.1) {
+        const st = Math.min(d, c.speed * dt);
+        const nx = c.x + (dx / d) * st, nz = c.z + (dz / d) * st;
+        if (!blockedRaw(nx, nz, 0.2)) { c.x = nx; c.z = nz; moving = true; } else { c.tx = c.x; c.tz = c.z; }
+        c.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
+      } else if ((c.wait -= dt) <= 0) {
+        c.wait = 1.5 + Math.random() * 4;
+        if (c.kind === "dog" && player && Math.random() < 0.35) { c.tx = player.x + 1.2; c.tz = player.z + 0.8; }
+        else { c.tx = c.box[0] + Math.random() * (c.box[1] - c.box[0]); c.tz = c.box[2] + Math.random() * (c.box[3] - c.box[2]); }
+      }
+      const f = moving ? Math.floor(c.t * 6) % 2 : (Math.floor(c.t / 0.9) % 3 === 0 ? 1 : 0);
+      const tex = c.frames[f][c.face];
+      if (c.mesh.material.map !== tex) c.mesh.material.map = tex;
+      c.grp.position.set(c.x, moving ? Math.abs(Math.sin(c.t * 14)) * 0.08 : 0, c.z);
+    });
+  }
+  function stepPeople(dt) {
+    for (const id in people) {
+      const p = people[id];
+      if (!p.frames || !p.mesh) continue;
+      p.t += dt;
+      const near = player && Math.hypot(player.x - p.x, player.z - p.z) < 3.2;
+      let moving = false;
+      if (!paused && !near && p.spots.length > 1) {
+        const dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
+        if (d > 0.06) {
+          const st = Math.min(d, 1.1 * dt);
+          p.x += (dx / d) * st; p.z += (dz / d) * st; moving = true;
+          p.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
+        } else if ((p.wait -= dt) <= 0) {
+          p.wait = 2.5 + Math.random() * 4;
+          const opts = p.spots.filter(([x, z]) => Math.hypot(x - p.x, z - p.z) > 0.3);
+          const pick = opts[Math.floor(Math.random() * opts.length)];
+          if (pick) { p.tx = pick[0]; p.tz = pick[1]; }
+        }
+      }
+      if (near && player) p.face = (player.x - p.x) * RIGHT.x + (player.z - p.z) * RIGHT.z >= 0 ? "r" : "l";
+      const f = moving ? Math.floor(p.t * 5) % 2 : Math.floor(p.t / 0.7) % p.frames.length;
+      const tex = p.frames[f][p.face];
+      if (p.mesh.material.map !== tex) p.mesh.material.map = tex;
+      const bob = moving ? Math.abs(Math.sin(p.t * 9)) * 0.07 : (p.works ? Math.max(0, Math.sin(p.t * 5)) * 0.04 : 0);
+      p.grp.position.set(p.x, bob, p.z);
+    }
+  }
+  function stepGoat(dt) {
+    const g = goatState;
+    if (!g) return;
+    g.t += dt;
+    let moving = false;
+    if (goatFollow && player) {
+      const last = trail[trail.length - 1];
+      if (!last || Math.hypot(last[0] - player.x, last[1] - player.z) > 0.35) { trail.push([player.x, player.z]); if (trail.length > 40) trail.shift(); }
+      const target = trail[Math.max(0, trail.length - 6)];
+      if (target) {
+        const dx = target[0] - g.x, dz = target[1] - g.z, d = Math.hypot(dx, dz);
+        if (d > 0.4 && Math.hypot(player.x - g.x, player.z - g.z) > 1.4) {
+          const st = Math.min(d, Math.max(2.5, d * 2.2) * dt);
+          g.x += (dx / d) * st; g.z += (dz / d) * st; moving = true;
+          g.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
+        }
+      }
+    }
+    const f = moving ? Math.floor(g.t * 7) % 2 : Math.floor(g.t / 0.8) % 2;
+    const tex = g.frames[f][g.face];
+    if (g.mesh.material.map !== tex) g.mesh.material.map = tex;
+    g.grp.position.set(g.x, moving ? Math.abs(Math.sin(g.t * 13)) * 0.1 : 0, g.z);
+  }
+
+  // chimney smoke
+  const smokes = [];
+  function buildSmoke() {
+    const tex = canvasTex(64, 64, (g) => {
+      const r = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+      r.addColorStop(0, "rgba(255,255,255,0.95)"); r.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    });
+    CHIMNEYS.forEach(([x, y, z], ci) => {
+      for (let i = 0; i < 6; i++) {
+        const m = new T.SpriteMaterial({ map: tex, color: 0xd9d4cc, transparent: true, depthWrite: false, opacity: 0 });
+        tintMats.push(m);
+        const sp = new T.Sprite(m);
+        sp.position.set(x, y, z);
+        scene.add(sp);
+        smokes.push({ sp, base: [x, y, z], life: (i / 6) * 4 + ci * 0.37 });
+      }
+    });
+  }
+  function stepSmoke(dt) {
+    smokes.forEach((p) => {
+      p.life = (p.life + dt) % 4;
+      const k = p.life / 4;
+      p.sp.position.set(p.base[0] + k * 0.9 + Math.sin(k * 6) * 0.15, p.base[1] + k * 2.6, p.base[2] - k * 0.4);
+      const sc = 0.5 + k * 1.3;
+      p.sp.scale.set(sc, sc, 1);
+      p.sp.material.opacity = (1 - k) * 0.55 * Math.min(1, k * 6);
+    });
+  }
+
+  // grass and corn sway in the wind
+  const swayUniform = { value: 0 };
+  function swayMaterial(color) {
+    const m = new T.MeshToonMaterial({ color, gradientMap: gradient });
+    m.onBeforeCompile = (sh) => {
+      sh.uniforms.uTime = swayUniform;
+      sh.vertexShader = "uniform float uTime;\n" + sh.vertexShader.replace("#include <begin_vertex>", `#include <begin_vertex>
+        #ifdef USE_INSTANCING
+          vec4 swayBase = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          float swayH = max(position.y + 0.25, 0.0);
+          transformed.x += sin(uTime * 1.8 + swayBase.x * 0.6 + swayBase.z * 0.4) * 0.14 * swayH;
+          transformed.z += cos(uTime * 1.3 + swayBase.x * 0.3) * 0.07 * swayH;
+        #endif`);
+    };
+    return m;
+  }
+
+  // ---------- Time of day ----------
+  // 0 afternoon, 1 golden hour, 2 dusk, 3 night
+  const KEYS = {
+    skyTop:   ["#9cc6df", "#e7b27e", "#5b5f8e", "#0e1730"],
+    skyBot:   ["#e8e6cf", "#f7dcae", "#e79a6c", "#2a3a62"],
+    hemiSky:  ["#fff4dc", "#ffe2b8", "#c3b0cf", "#7482b4"],
+    hemiGnd:  ["#6f7a52", "#7a6a4a", "#4a4a5a", "#232a3d"],
+    hemiInt:  [0.75, 0.64, 0.52, 0.46],
+    sunCol:   ["#fff1d6", "#ffc07a", "#ff9466", "#a9bcff"],
+    sunInt:   [0.95, 0.9, 0.55, 0.4],
+    sunOff:   [[-14, 26, 10], [-28, 13, 4], [-30, 7, 2], [16, 24, -12]],
+    tint:     ["#ffffff", "#fff0dc", "#d8cfe0", "#aab4d4"],
+    glow:     [0, 0, 0.75, 1],
+    stars:    [0, 0, 0.15, 1],
+  };
+  let phase = 0, phaseTarget = 0;
+  const windowMats = [], lanternMats = [], glowSprites = [], tintMats = [];
+  let hemi = null, starsEl = null;
+  const cA = new T.Color(), cB = new T.Color();
+  function lerpKey(name, t) {
+    const arr = KEYS[name], i = Math.min(arr.length - 2, Math.floor(t)), f = t - i;
+    const a = arr[i], b = arr[i + 1];
+    if (typeof a === "number") return a + (b - a) * f;
+    if (Array.isArray(a)) return a.map((v, k) => v + (b[k] - v) * f);
+    return cA.set(a).lerp(cB.set(b), f).clone();
+  }
+  function applyPhase(t) {
+    container.style.setProperty("--sky-top", "#" + lerpKey("skyTop", t).getHexString());
+    container.style.setProperty("--sky-bottom", "#" + lerpKey("skyBot", t).getHexString());
+    hemi.color.copy(lerpKey("hemiSky", t));
+    hemi.groundColor.copy(lerpKey("hemiGnd", t));
+    hemi.intensity = lerpKey("hemiInt", t);
+    sun.color.copy(lerpKey("sunCol", t));
+    sun.intensity = lerpKey("sunInt", t);
+    sunOffset = lerpKey("sunOff", t);
+    const tint = lerpKey("tint", t);
+    tintMats.forEach((m) => m.color.copy(tint));
+    if (water) water.material.color.copy(tint);
+    const g = lerpKey("glow", t);
+    windowMats.forEach((m) => { m.emissive.set(0xffc35a); m.emissiveIntensity = g * 0.9; });
+    lanternMats.forEach((m) => m.color.set(0x5a4a34).lerp(cB.set(0xffd27a), g));
+    glowSprites.forEach((sp) => (sp.material.opacity = g * 0.75));
+    if (starsEl) starsEl.style.opacity = lerpKey("stars", t);
+  }
+  let sunOffset = [-14, 26, 10];
+  function buildLanterns() {
+    const glowTex = canvasTex(64, 64, (g) => {
+      const r = g.createRadialGradient(32, 32, 1, 32, 32, 31);
+      r.addColorStop(0, "rgba(255,214,130,1)"); r.addColorStop(0.35, "rgba(255,190,90,0.45)"); r.addColorStop(1, "rgba(255,170,60,0)");
+      g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+    });
+    const postMat = toon("#3d3029");
+    LANTERNS.forEach(([x, z]) => {
+      box(scene, 0.12, 2.5, 0.12, postMat, x, 0, z, false);
+      box(scene, 0.5, 0.07, 0.07, postMat, x + 0.2, 2.45, z, false);
+      const lm = new T.MeshBasicMaterial({ color: 0x5a4a34 });
+      lanternMats.push(lm);
+      const lamp = new T.Mesh(new T.BoxGeometry(0.26, 0.34, 0.26), lm);
+      lamp.position.set(x + 0.4, 2.2, z); scene.add(lamp); addEdges(lamp, scene);
+      const sp = new T.Sprite(new T.SpriteMaterial({ map: glowTex, transparent: true, depthWrite: false, blending: T.AdditiveBlending, opacity: 0 }));
+      sp.position.set(x + 0.4, 2.2, z); sp.scale.set(2.6, 2.6, 1);
+      scene.add(sp); glowSprites.push(sp);
+      post(x, z, 0.15);
     });
   }
 
@@ -688,7 +911,9 @@ window.World = (function () {
   }
   function talkSpot(id) {
     if (id === "chair") return [CHAIR.x + 0.2, CHAIR.z + 1.3];
-    const p = PEOPLE[id];
+    const p = people[id] || PEOPLE[id];
+    const tries = [[0, 1.25], [1.2, 0.4], [-1.2, 0.4], [0, -1.25]];
+    for (const [dx, dz] of tries) if (!blockedRaw(p.x + dx, p.z + dz, PR)) return [p.x + dx, p.z + dz];
     return [p.x, p.z + 1.25];
   }
   function goTo(id) {
@@ -751,12 +976,13 @@ window.World = (function () {
       if (!paused) movePlayer(dt);
       animatePlayer(dt);
     }
-    for (const id in people) {
-      const p = people[id];
-      if (!p.frames || !p.mesh) continue;
-      p.t += dt;
-      const f = Math.floor(p.t / 0.7) % p.frames.length;
-      if (p.mesh.material.map !== p.frames[f].r) p.mesh.material.map = p.frames[f].r;
+    stepPeople(dt);
+    if (!paused) { stepCritters(dt); stepGoat(dt); }
+    stepSmoke(dt);
+    swayUniform.value += dt;
+    if (Math.abs(phase - phaseTarget) > 0.001) {
+      phase += Math.sign(phaseTarget - phase) * Math.min(Math.abs(phaseTarget - phase), dt * 0.3);
+      applyPhase(phase);
     }
     if (water) water.material.map.offset.y -= dt * 0.08;
     // camera follows the player
@@ -794,7 +1020,12 @@ window.World = (function () {
         path.shift();
         if (!path.length) {
           showMarker(null);
-          if (pendingTarget) { const t = pendingTarget; pendingTarget = null; if (distTo(t) < 2.6) onInteract(t); }
+          if (pendingTarget) {
+            const t = pendingTarget; pendingTarget = null;
+            if (distTo(t) < 2.6) { retries = 0; onInteract(t); }
+            else if (retries++ < 2) { const [x, z] = talkSpot(t); walkTo(x, z, t); }
+            else retries = 0;
+          }
         }
       } else { mx = dx / d; mz = dz / d; }
     }
@@ -857,7 +1088,7 @@ window.World = (function () {
     camera.position.copy(camTarget).addScaledVector(CAM_DIR, 60);
     camera.lookAt(camTarget);
     if (sun) {
-      sun.position.set(camTarget.x - 14, 26, camTarget.z + 10);
+      sun.position.set(camTarget.x + sunOffset[0], sunOffset[1], camTarget.z + sunOffset[2]);
       sun.target.position.copy(camTarget);
     }
   }
@@ -895,7 +1126,11 @@ window.World = (function () {
     scene = new T.Scene();
     gradient = makeGradient();
     camera = new T.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
-    scene.add(new T.HemisphereLight(0xfff4dc, 0x6f7a52, 0.75));
+    hemi = new T.HemisphereLight(0xfff4dc, 0x6f7a52, 0.75);
+    scene.add(hemi);
+    starsEl = document.createElement("div");
+    starsEl.className = "stars";
+    el.prepend(starsEl);
     sun = new T.DirectionalLight(0xfff1d6, 0.95);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -905,10 +1140,13 @@ window.World = (function () {
 
     Object.entries(BUILDINGS).forEach(([id, b]) => buildBuilding(id, b));
     buildProps();
+    buildLanterns();
     buildGround();
     buildGrid();
     buildPeople();
+    buildSmoke();
     buildLabels(data);
+    applyPhase(phase);
     camTarget.set(START.x, 0, START.z);
 
     const cv = renderer.domElement;
@@ -942,6 +1180,11 @@ window.World = (function () {
     },
     setQuality,
     get quality() { return shadowsOn ? "high" : "low"; },
+    setPhase(p, now) { phaseTarget = p; if (!renderer || now) { phase = p; if (renderer) applyPhase(p); } },
+    setGoatFollow(on) {
+      if (on && !goatFollow && goatState && player) { trail.length = 0; }
+      goatFollow = on;
+    },
     stats() { return renderer ? { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, geometries: renderer.info.memory.geometries, textures: renderer.info.memory.textures } : null; },
     zoom(d) { targetView = Math.max(12, Math.min(36, targetView + d)); },
     places: BUILDINGS,

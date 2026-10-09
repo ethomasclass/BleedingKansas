@@ -25,6 +25,10 @@
     answers: {},
     finished: false,
     readAloud: false,
+    choices: {},        // dilemma id -> option id
+    choiceAt: {},       // dilemma id -> scene number when it was made
+    events: {},         // event ids that already played
+    scenes: 0,          // how many talking scenes have opened
   });
   let S = fresh();
   function load() {
@@ -72,7 +76,13 @@
     const canSolve = S.solveOpen || (has("c3") && has("c4") && has("c6"));
     $("solveBtn").disabled = !canSolve;
     $("solveBtn").title = canSolve ? "Answer the case questions" : "Find more clues first";
-    if (worldOK) World.setMarkers(markers());
+    const phase = has("c6") ? 3 : has("c4") ? 2 : has("c3") ? 1 : 0;
+    $("hudTime").textContent = ["Afternoon", "Evening", "Dusk", "Night"][phase];
+    if (worldOK) {
+      World.setMarkers(markers());
+      World.setPhase(phase);
+      World.setGoatFollow(!!S.met.byrne);
+    }
   }
   function availableTopics(id) {
     const c = D.characters[id];
@@ -81,7 +91,7 @@
   function markers() {
     const m = {};
     Object.keys(D.characters).forEach((id) => {
-      const fresh = availableTopics(id).some((t) => !S.asked[id + "." + t.id]);
+      const fresh = availableTopics(id).some((t) => !S.asked[id + "." + t.id]) || pendingEvents(id).length > 0;
       m[id] = fresh ? "new" : "done";
     });
     m.chair = S.chairSeen ? "done" : "new";
@@ -153,12 +163,61 @@
     setScenePortrait(id, c.expr[0]);
     $("scene").hidden = false;
     $("scene").classList.remove("chair-mode");
-    if (!S.met[id]) {
+    S.scenes++;
+    const firstVisit = !S.met[id];
+    const afterHello = () => runEvents(id, () => {
+      const rv = !firstVisit && (c.revisit || []).find((r) => matches(r.when) && Object.keys(r.when).every((k) => S.choiceAt[k] < S.scenes));
+      if (rv) playLines(rv.lines, showMenu); else showMenu();
+    });
+    if (firstVisit) {
       S.met[id] = true; save();
-      playLines(c.greeting, showMenu);
+      playLines(c.greeting, afterHello);
     } else {
-      showMenu();
+      afterHello();
     }
+    refreshHUD();
+  }
+  // a "when" like { offer: "take" } matches the choices made so far
+  function matches(when) { return !when || Object.keys(when).every((k) => S.choices[k] === when[k]); }
+  function pendingEvents(id) {
+    const c = D.characters[id];
+    const evs = (c.events || []).filter((ev) => !S.events[id + "." + ev.id] && (!ev.requires || ev.requires.every(has)) && matches(ev.when) && !(ev.choice && S.choices[ev.choice]));
+    // a dilemma that was started but left before choosing comes back
+    c.topics.forEach((t) => { if (t.choice && S.asked[id + "." + t.id] && !S.choices[t.choice]) evs.push({ id: "redo-" + t.choice, choice: t.choice }); });
+    return evs;
+  }
+  function runEvents(id, done) {
+    const ev = pendingEvents(id)[0];
+    if (!ev) return done();
+    const next = () => { S.events[id + "." + ev.id] = true; save(); runEvents(id, done); };
+    if (ev.choice) runChoice(ev.choice, next);
+    else playLines(ev.lines, next);
+  }
+
+  // ---------- Choices that stick ----------
+  function runChoice(key, done) {
+    if (S.choices[key]) return done();
+    const ch = D.choices[key];
+    playLines(ch.lines, () => {
+      scene.mode = "choice";
+      $("dialogNext").hidden = true;
+      $("dialogName").textContent = "Your choice";
+      $("dialog").classList.add("is-you");
+      $("dialogText").textContent = "There's no single right answer. Choose carefully. The town will remember.";
+      const menu = $("dialogMenu");
+      menu.hidden = false;
+      menu.innerHTML = ch.options.map((o, i) => `<button type="button" class="ask is-choice" data-opt="${o.id}"><span class="ask-key">${i + 1}</span><span class="ask-label">${o.label}</span></button>`).join("");
+      menu.querySelectorAll("button").forEach((b) => b.addEventListener("click", () => {
+        const opt = ch.options.find((o) => o.id === b.dataset.opt);
+        S.choices[key] = opt.id;
+        S.choiceAt[key] = S.scenes;
+        save();
+        toast(`<span class="toast-kind">Choice made</span>${ch.title}: ${opt.label}`);
+        playLines(opt.lines, () => { refreshHUD(); done(); });
+      }));
+      menu.querySelector("button").focus({ preventScroll: true });
+      if (S.readAloud) speak("Your choice. " + ch.options.map((o) => o.label).join(". Or. "));
+    });
   }
   function placeName(place) {
     const p = (worldOK && World.places[place]) || null;
@@ -260,10 +319,11 @@
       S.asked[id + "." + t.id] = true;
       t.add.forEach(([kind, nid]) => addNote(kind, nid));
       save(); refreshHUD();
-      showMenu();
+      if (t.choice) runChoice(t.choice, showMenu); else showMenu();
     });
   }
   function closeScene() {
+    if (scene.mode === "choice") { toast("Make your choice first."); return; }
     clearInterval(scene.timer);
     stopSpeaking();
     $("scene").hidden = true;
@@ -396,7 +456,7 @@
   function openSolve() {
     pauseWorld(true);
     $("solve").hidden = false;
-    solveStep = S.finished ? 5 : (S.answers.step || 0);
+    solveStep = S.finished ? 6 : (S.answers.step || 0);
     renderSolve();
   }
   function closeSolve() {
@@ -410,7 +470,7 @@
   };
   function renderSolve() {
     const Q = D.solve, a = S.answers, body = $("solveBody");
-    const steps = ["What happened?", "Why?", "No arrests", "Who decides?", "Exit check", "What really happened"];
+    const steps = ["What happened?", "Why?", "No arrests", "Who decides?", "Exit check", "Your choices", "What really happened"];
     $("solveSteps").innerHTML = steps.map((s, i) => `<li class="${i === solveStep ? "on" : i < solveStep ? "past" : ""}">${s}</li>`).join("");
     let html = "";
     if (solveStep === 0) {
@@ -430,13 +490,18 @@
         </div>`;
     } else if (solveStep === 4) {
       html = `<h2>Exit check</h2><p class="exit-q">${Q.final.exit}</p><label class="sr-only" for="exitText">Your answer</label><textarea id="exitText" rows="4" placeholder="Write one or two sentences.">${esc(a.exit)}</textarea>`;
+    } else if (solveStep === 5) {
+      html = `<h2>What your choices led to</h2><div class="outcomes">${Object.keys(D.choices).map((k) => {
+        const ch = D.choices[k], o = ch.options.find((x) => x.id === S.choices[k]);
+        return `<article class="outcome"><p class="eyebrow">${ch.title}</p><h3>${o ? o.label : "No choice made"}</h3><p>${o ? o.outcome : ch.none}</p></article>`;
+      }).join("")}</div><p class="outcome-close">${D.choicesClosing}</p>`;
     } else {
       const R = D.reality;
       html = `<div class="reality"><p class="eyebrow">Based on a true story</p><h2>${R.title}</h2>${R.paragraphs.map((p) => `<p>${p}</p>`).join("")}<h3>What came next</h3><p>${R.next}</p></div>`;
     }
     body.innerHTML = html;
-    $("solveBack").hidden = solveStep === 0 || solveStep === 5;
-    $("solveNext").textContent = solveStep === 4 ? "See what really happened" : solveStep === 5 ? "See your case report" : "Next";
+    $("solveBack").hidden = solveStep === 0 || solveStep >= 5;
+    $("solveNext").textContent = solveStep === 4 ? "See what your choices led to" : solveStep === 5 ? "See what really happened" : solveStep === 6 ? "See your case report" : "Next";
     wireSolve();
   }
   function esc(s) { return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
@@ -482,7 +547,7 @@
       a.exit = $("exitText").value.trim();
       if (!a.exit) { toast("Write an answer to the exit check."); return; }
       S.finished = true;
-    } else if (solveStep === 5) {
+    } else if (solveStep === 6) {
       save(); closeSolve(); openReport(); return;
     }
     solveStep++;
@@ -525,6 +590,12 @@
     L.push("");
     L.push(`Exit check: ${Q.final.exit}`);
     L.push(`   ${a.exit || "(not answered)"}`);
+    L.push("");
+    L.push("Choices:");
+    Object.keys(D.choices).forEach((k) => {
+      const ch = D.choices[k], o = ch.options.find((x) => x.id === S.choices[k]);
+      L.push(`   ${ch.title}: ${o ? o.label : "no choice made"}`);
+    });
     L.push("");
     L.push("Who decides? What the townspeople said:");
     S.notes.who.forEach((id) => L.push(`   ${id === "chair" ? "The empty chair" : D.characters[id].name}: ${D.who[id]}`));
@@ -609,7 +680,13 @@
     document.addEventListener("keydown", (e) => {
       const typing = /INPUT|TEXTAREA/.test(document.activeElement.tagName);
       if (!$("scene").hidden) {
-        if (e.key === "Escape") { closeScene(); return; }
+        if (e.key === "Escape") { if (scene.mode !== "choice") closeScene(); return; }
+        if (scene.mode === "choice") {
+          const n = parseInt(e.key, 10);
+          const btns = $("dialogMenu").querySelectorAll(".ask");
+          if (n >= 1 && n <= btns.length) btns[n - 1].click();
+          return;
+        }
         if (scene.mode === "lines" && (e.key === " " || e.key === "Enter")) { e.preventDefault(); advance(); return; }
         if (scene.mode === "menu") {
           const n = parseInt(e.key, 10);
@@ -653,5 +730,7 @@
     startWorld();
     refreshHUD();
   }
+  // small hook for automated tests and teacher demos
+  window.WIRB = { open: openTarget, state: () => S };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 })();
