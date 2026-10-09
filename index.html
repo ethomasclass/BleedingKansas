@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Where Is Reese Brown?</title>
+<meta name="description" content="An investigation game set in Easton, Kansas Territory, 1856.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Zilla+Slab:wght@600;700&display=swap">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <div id="world" aria-label="The town of Easton. Walk with W A S D or the arrow keys, or click the ground."></div>
+  <div id="fallback" class="fallback" hidden></div>
+
+  <header id="hud" class="hud" hidden>
+    <div class="hud-place">
+      <span class="hud-title">Where Is Reese Brown?</span>
+      <span class="hud-sub">Easton, Kansas Territory &middot; June 1856</span>
+    </div>
+    <nav class="hud-actions" aria-label="Game">
+      <button type="button" id="noteBtn" class="btn btn-dark">Notebook <span id="noteBadge" class="badge" hidden></span></button>
+      <button type="button" id="solveBtn" class="btn btn-brass" disabled>Solve the case</button>
+      <button type="button" id="menuBtn" class="btn btn-dark" aria-label="Menu">Menu</button>
+    </nav>
+  </header>
+
+  <div id="lead" class="lead" hidden></div>
+  <button type="button" id="prompt" class="prompt" hidden></button>
+  <div id="controlsHint" class="controls-hint" hidden>
+    <strong>Walk:</strong> W A S D, arrow keys, or click the ground<br>
+    <strong>Talk:</strong> walk up to someone and press <kbd>E</kbd>, or click them<br>
+    <strong>Zoom:</strong> mouse wheel
+  </div>
+
+  <!-- Title -->
+  <section id="title" class="title-screen" aria-labelledby="titleH">
+    <div class="title-card">
+      <p class="eyebrow">A U.S. House committee investigation &middot; 1856</p>
+      <h1 id="titleH">Where Is<br>Reese Brown?</h1>
+      <p class="title-lede">In January, a free-state leader went to guard an election in Easton, Kansas Territory. He never came home. Congress has sent you to find out why.</p>
+      <label class="field-label" for="teamName">Team name</label>
+      <input id="teamName" type="text" maxlength="60" placeholder="For example: Table 4" autocomplete="off">
+      <div class="title-actions">
+        <button type="button" id="continueBtn" class="btn btn-brass btn-lg" hidden>Continue</button>
+        <button type="button" id="startBtn" class="btn btn-brass btn-lg">Start investigating</button>
+      </div>
+      <p class="title-note">The townspeople are made up. The events and numbers are based on real history.</p>
+    </div>
+  </section>
+
+  <!-- Intro -->
+  <section id="intro" class="intro" hidden aria-labelledby="introTitle">
+    <div class="intro-card">
+      <div id="introArt" class="intro-art"></div>
+      <div class="intro-copy">
+        <p id="introYear" class="intro-year"></p>
+        <h2 id="introTitle"></h2>
+        <p id="introText" class="intro-text"></p>
+        <p id="introHint" class="intro-hint"></p>
+      </div>
+      <div class="intro-nav">
+        <button type="button" id="introBack" class="btn btn-ghost">Back</button>
+        <div id="introDots" class="dots" aria-hidden="true"></div>
+        <button type="button" id="introNext" class="btn btn-brass">Next</button>
+      </div>
+      <button type="button" id="introSkip" class="link-btn intro-skip">Skip intro</button>
+      <button type="button" class="link-btn intro-read" data-readaloud aria-pressed="false">Read aloud: off</button>
+    </div>
+  </section>
+
+  <!-- Talking scene -->
+  <section id="scene" class="scene" hidden role="dialog" aria-modal="true" aria-labelledby="dialogName">
+    <div id="sceneBg" class="scene-bg"></div>
+    <img id="scenePortrait" class="scene-portrait" alt="">
+    <div id="scenePlace" class="scene-place"></div>
+    <button type="button" id="sceneLeave" class="btn btn-dark scene-leave">Leave</button>
+    <div id="scenePapers" class="scene-papers" hidden></div>
+    <div id="dialog" class="dialog">
+      <div id="dialogName" class="dialog-name"></div>
+      <p id="dialogText" class="dialog-text" aria-live="polite"></p>
+      <div id="dialogMenu" class="dialog-menu" hidden></div>
+      <div class="dialog-foot">
+        <button type="button" class="link-btn" data-readaloud aria-pressed="false">Read aloud: off</button>
+        <button type="button" id="dialogNext" class="dialog-next">Next &#9656;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Notebook -->
+  <section id="notebook" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="noteH">
+    <div class="panel-card paper">
+      <div class="panel-head">
+        <h2 id="noteH">Notebook</h2>
+        <button type="button" id="noteClose" class="btn btn-ghost">Close</button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" role="tab" data-tab="clue">Clues</button>
+        <button type="button" role="tab" data-tab="history">History</button>
+        <button type="button" role="tab" data-tab="who">Who decides?</button>
+        <button type="button" role="tab" data-tab="timeline">Timeline</button>
+      </div>
+      <div id="noteBody" class="panel-body"></div>
+    </div>
+  </section>
+
+  <!-- Solve -->
+  <section id="solve" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="solveH">
+    <div class="panel-card paper panel-wide">
+      <div class="panel-head">
+        <h2 id="solveH">Solve the case</h2>
+        <button type="button" id="solveClose" class="btn btn-ghost">Back to town</button>
+      </div>
+      <ol id="solveSteps" class="steps"></ol>
+      <div id="solveBody" class="panel-body solve-body"></div>
+      <div class="panel-foot">
+        <button type="button" id="solveBack" class="btn btn-ghost">Back</button>
+        <button type="button" id="solveNext" class="btn btn-brass">Next</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Report -->
+  <section id="report" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="reportH">
+    <div class="panel-card paper panel-wide">
+      <div class="panel-head">
+        <h2 id="reportH">Case report</h2>
+        <button type="button" id="reportClose" class="btn btn-ghost">Back to town</button>
+      </div>
+      <p class="note-lead">Copy this and paste it into Google Classroom.</p>
+      <pre id="reportText" class="report-text"></pre>
+      <div class="panel-foot">
+        <button type="button" id="reportPrint" class="btn btn-ghost">Print</button>
+        <button type="button" id="reportCopy" class="btn btn-brass">Copy report</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Menu -->
+  <section id="menu" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="menuH">
+    <div class="panel-card paper panel-narrow">
+      <div class="panel-head"><h2 id="menuH">Menu</h2></div>
+      <div class="menu-list">
+        <button type="button" id="menuResume" class="btn btn-brass">Back to the game</button>
+        <button type="button" class="btn btn-ghost" data-readaloud aria-pressed="false">Read aloud: off</button>
+        <button type="button" id="qualityBtn" class="btn btn-ghost">Graphics: high</button>
+        <button type="button" id="menuIntro" class="btn btn-ghost">Replay the intro</button>
+        <button type="button" id="teacherBtn" class="btn btn-ghost">Teacher: open the case questions now</button>
+        <button type="button" id="resetBtn" class="btn btn-danger">Start over</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+</div>
+
+<script src="js/vendor/three.min.js"></script>
+<script src="art/manifest.js"></script>
+<script src="js/data.js"></script>
+<script src="js/art.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
