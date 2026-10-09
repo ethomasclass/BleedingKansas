@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Cast viewer</title>
+<style>html,body{margin:0;height:100%;background:#cfd9c4;overflow:hidden;font-family:sans-serif}#c{width:100%;height:100%;display:block}
+#bar{position:fixed;left:8px;top:8px;background:#fff8;padding:6px 10px;border-radius:8px;font-size:13px}</style></head>
+<body><div id="bar">Cast viewer (development): drag to turn, W to toggle walking</div><canvas id="c"></canvas>
+<script src="js/vendor/three.min.js"></script>
+<script src="art/manifest.js"></script>
+<script src="js/art.js"></script>
+<script src="js/models.js"></script>
+<script>
+const T = THREE, cv = document.getElementById('c');
+const r = new T.WebGLRenderer({ canvas: cv, antialias: true });
+r.outputEncoding = T.sRGBEncoding; r.setPixelRatio(Math.min(devicePixelRatio, 2)); r.shadowMap.enabled = true;
+const scene = new T.Scene(); scene.background = new T.Color(0xcfd9c4);
+const g = new Uint8Array([90,90,90,255,175,175,175,255,255,255,255,255]); const grad = new T.DataTexture(g, 3, 1, T.RGBAFormat); grad.minFilter = grad.magFilter = T.NearestFilter; grad.needsUpdate = true;
+Models.init(grad);
+scene.add(new T.HemisphereLight(0xfff4dc, 0x6f7a52, 0.75));
+const sun = new T.DirectionalLight(0xfff1d6, 0.95); sun.position.set(-6, 10, 8); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -10, right: 10, top: 10, bottom: -10 }); scene.add(sun);
+const ground = new T.Mesh(new T.PlaneGeometry(40, 40), new T.MeshToonMaterial({ color: 0x93ad5c, gradientMap: grad })); ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+const ids = ['player','mrsbrown','whitcomb','pruitt','pike','tuttle','grayson','byrne','bell','cobb','hale'];
+const cast = ids.map((id, i) => { const m = Models.human(id); m.root.position.set((i - (ids.length-1)/2) * 1.05, 0, 0); scene.add(m.root); return m; });
+const goat = Models.goat(); goat.root.position.set(-2.2, 0, 1.6); scene.add(goat.root);
+const dog = Models.dog(); dog.root.position.set(0, 0, 1.7); scene.add(dog.root);
+const hen = Models.chicken(); hen.root.position.set(2, 0, 1.6); scene.add(hen.root);
+const params = new URLSearchParams(location.search);
+const zoom = +(params.get('zoom') || 6.5), yawStart = +(params.get('yaw') || 0);
+const cam = new T.OrthographicCamera(-1, 1, 1, -1, 0.1, 100);
+let yaw = yawStart, walking = params.get('walk') === '1';
+function place() { const a = innerWidth / innerHeight; cam.left = -zoom * a / 2; cam.right = zoom * a / 2; cam.top = zoom / 2; cam.bottom = -zoom / 2; cam.updateProjectionMatrix();
+  const el = +(params.get('el') || 0.35); cam.position.set(Math.sin(yaw) * 20 * Math.cos(el), 20 * Math.sin(el) + 1, Math.cos(yaw) * 20 * Math.cos(el)); cam.lookAt(+(params.get('tx') || 0), +(params.get('ty') || 1), 0); cam.position.x += +(params.get('tx') || 0); }
+let drag = null; cv.onpointerdown = e => drag = e.clientX; onpointerup = () => drag = null; onpointermove = e => { if (drag !== null) { yaw -= (e.clientX - drag) * 0.01; drag = e.clientX; } };
+onkeydown = e => { if (e.key === 'w') walking = !walking; };
+const clock = new T.Clock();
+function tick() { requestAnimationFrame(tick); const dt = Math.min(clock.getDelta(), 0.05); place();
+  cast.forEach(m => Models.animate(m, dt, { moving: walking, speed: 1.4 }));
+  [goat, dog].forEach(m => Models.animate(m, dt, { moving: walking, speed: 1 })); Models.animate(hen, dt, { moving: walking });
+  r.setSize(innerWidth, innerHeight, false); r.render(scene, cam); }
+tick();
+</script></body></html>

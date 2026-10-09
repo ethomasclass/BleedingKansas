@@ -36,7 +36,7 @@ window.World = (function () {
     pruitt:   { x: 8.6,   z: -3.4, place: "tavern",  roam: [[0, 0], [-1.2, 0.4], [0.8, 0.6]] },
     pike:     { x: 15.4,  z: -3.4, place: "store",   roam: [[0, 0], [1.6, 0], [0.6, 0.8]] },
     tuttle:   { x: -14.4, z: 11.4, place: "post",    roam: [[0, 0], [-1.4, 0.4], [0.6, 0.8]] },
-    grayson:  { x: 7.4,   z: 9.4,  place: "forge",   roam: [[0, 0]], works: true },
+    grayson:  { x: 7.0,   z: 11.35, place: "forge",  roam: [[0, 0]], works: true },
     bell:     { x: 16.4,  z: 11.4, place: "print",   roam: [[0, 0], [1.4, 0.3], [-0.8, 0.7]] },
     hale:     { x: -26.4, z: 11.4, place: "school",  roam: [[0, 0], [1.2, 0.6], [-0.6, 0.9]] },
     cobb:     { x: -5.2,  z: 4.6,  place: "wagon",   roam: [[0, 0], [1.2, 0.4], [0.4, 1.0]] },
@@ -259,14 +259,15 @@ window.World = (function () {
       const hearth = box(grp, 2.2, 1.0, 1.6, own(toon("#4a3f3a")), -1.6, 0, -fz + 1.2);
       const coals = new T.Mesh(new T.BoxGeometry(1.6, 0.12, 1.1), new T.MeshBasicMaterial({ color: 0xff8a2a }));
       coals.position.set(-1.6, 1.06, -fz + 1.2); grp.add(coals);
-      box(grp, 1.0, 0.7, 0.5, own(toon("#3b3b40")), 1.0, 0.5, 0.2);
-      box(grp, 0.6, 0.5, 0.6, own(toon("#5a3b26")), 1.0, 0, 0.2);
+      // the anvil sits out front, where the camera can see him work
+      box(grp, 1.0, 0.32, 0.45, own(toon("#3b3b40")), 1.0, 0.5, 4.05);
+      box(grp, 0.42, 0.5, 0.42, own(toon("#5a3b26")), 1.0, 0, 4.05);
       box(grp, 0.9, b.h + 2.4, 0.9, own(toon("#7d746b")), -1.6, 0, -fz + 0.6);
       solid(b.x - fx, b.x + fx, b.z - fz, b.z - fz + 0.4);
       solid(b.x - fx, b.x - fx + 0.4, b.z - fz, b.z + fz);
       solid(b.x + fx - 0.4, b.x + fx, b.z - fz, b.z + fz);
       solid(b.x - 2.8, b.x - 0.4, b.z - fz, b.z - fz + 2.1);
-      solid(b.x + 0.4, b.x + 1.6, b.z - 0.2, b.z + 0.6);
+      solid(b.x + 0.45, b.x + 1.55, b.z + 3.75, b.z + 4.35);
     } else {
       const walls = box(grp, b.w, b.h, b.d, wallMat, 0, 0, 0);
       wt.repeat.set(b.w / 3, b.h / 3);
@@ -561,87 +562,35 @@ window.World = (function () {
     return true;
   }
 
-  // ---------- Characters ----------
-  const SPRITE_H = 2.05;
-  const BILLBOARD_STRETCH = 1 / Math.cos(Math.asin(CAM_DIR.y)); // undo the camera's tilt
-  function framesFrom(sourceCanvasOrImage, count) {
-    const base = new T.Texture(sourceCanvasOrImage);
-    base.encoding = T.sRGBEncoding;
-    base.needsUpdate = true;
-    const out = [];
-    for (let i = 0; i < count; i++) {
-      const r = base.clone(); r.needsUpdate = true;
-      r.repeat.set(1 / count, 1); r.offset.set(i / count, 0);
-      const l = base.clone(); l.needsUpdate = true;
-      l.repeat.set(-1 / count, 1); l.offset.set((i + 1) / count, 0);
-      out.push({ r, l });
-    }
-    return out;
-  }
-  function makeBillboard(frames, aspect, scale) {
-    const h = SPRITE_H * (scale || 1);
-    const geo = new T.PlaneGeometry(h * aspect, h * BILLBOARD_STRETCH);
-    geo.translate(0, (h * BILLBOARD_STRETCH) / 2, 0);
-    const mat = new T.MeshBasicMaterial({ map: frames[0].r, transparent: true, alphaTest: 0.4, side: T.DoubleSide });
-    tintMats.push(mat);
-    const mesh = new T.Mesh(geo, mat);
-    mesh.rotation.y = Math.PI / 4;
-    mesh.castShadow = false;
-    const blob = new T.Mesh(new T.CircleGeometry(0.42 * (scale || 1), 16), new T.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.22, depthWrite: false }));
-    blob.rotation.x = -Math.PI / 2; blob.position.y = 0.03;
-    const grp = new T.Group(); grp.add(blob, mesh);
-    scene.add(grp);
-    return { grp, mesh };
-  }
-
-  function loadStrip(src, count, fallback) {
-    return window.ART.probe(src).then((img) => (img ? { img, count, real: true } : { img: fallback(), count, real: false }));
-  }
-
+  // ---------- Characters (3D models from models.js) ----------
+  const yawOf = (dx, dz) => Math.atan2(dx, dz);
   function buildPeople() {
-    const A = window.ART;
-    const aspect = A.FW / A.FH;
+    const M = window.Models;
     Object.entries(PEOPLE).forEach(([id, p]) => {
       const spots = p.roam.map(([dx, dz]) => [p.x + dx, p.z + dz]).filter(([x, z]) => !blockedRaw(x, z, 0.3));
-      const holder = { x: p.x, z: p.z, id, place: p.place, frames: null, t: Math.random() * 2, spots, tx: p.x, tz: p.z, wait: 1 + Math.random() * 3, face: "r", works: p.works };
-      people[id] = holder;
-      loadStrip(`art/sprites/${id}-idle.png`, 2, () => A.spriteStrip(id, "idle")).then(({ img, count }) => {
-        holder.frames = framesFrom(img, count);
-        const bb = makeBillboard(holder.frames, img.width / count / img.height || aspect);
-        holder.grp = bb.grp; holder.mesh = bb.mesh;
-        holder.grp.position.set(p.x, 0, p.z);
-        bb.mesh.userData.target = id; clickables.push(bb.mesh);
-      });
+      const model = M.human(id);
+      model.root.position.set(p.x, 0, p.z);
+      scene.add(model.root);
+      model.hit.userData.target = id;
+      clickables.push(model.hit);
+      people[id] = { x: p.x, z: p.z, id, place: p.place, model, spots, tx: p.x, tz: p.z, wait: 1 + Math.random() * 3, homeYaw: p.yaw || 0 };
+      M.face(model, p.yaw || 0, 1, 1);
     });
     // Senator the goat
-    const goat = { x: 28.0, z: 4.0 };
-    loadStrip("art/sprites/senator-idle.png", 2, () => A.spriteStrip("senator", "idle")).then(({ img, count }) => {
-      const frames = framesFrom(img, count);
-      const bb = makeBillboard(frames, img.width / count / img.height || aspect, 0.9);
-      bb.grp.position.set(goat.x, 0, goat.z);
-      bb.mesh.userData.target = "byrne"; clickables.push(bb.mesh);
-      goatState = { frames, mesh: bb.mesh, grp: bb.grp, t: 0.5, x: goat.x, z: goat.z, face: "r" };
-    });
+    const g = M.goat();
+    g.root.position.set(28.0, 0, 4.0);
+    scene.add(g.root);
+    g.mesh.userData.target = "byrne";
+    clickables.push(g.mesh);
+    M.face(g, -0.6, 1, 1);
+    goatState = { model: g, x: 28.0, z: 4.0 };
     buildCritters();
 
     // the player
-    player = { x: START.x, z: START.z, dir: { x: 0, z: 1 }, walkT: 0, moving: false };
-    Promise.all([
-      window.ART.probe("art/sprites/player-walk-front.png"),
-      window.ART.probe("art/sprites/player-walk-back.png"),
-    ]).then(([front, back]) => {
-      let ff, bf, aspectP;
-      if (front && back) { ff = framesFrom(front, 3); bf = framesFrom(back, 3); aspectP = front.width / 3 / front.height; }
-      else {
-        const strip = A.spriteStrip("player", "walk");
-        const all = framesFrom(strip, 6);
-        ff = all.slice(0, 3); bf = all.slice(3, 6); aspectP = aspect;
-      }
-      player.front = ff; player.back = bf;
-      const bb = makeBillboard(ff, aspectP);
-      player.grp = bb.grp; player.mesh = bb.mesh;
-      player.grp.position.set(player.x, 0, player.z);
-    });
+    const pm = M.human("player");
+    pm.root.position.set(START.x, 0, START.z);
+    scene.add(pm.root);
+    player = { x: START.x, z: START.z, dir: { x: 0, z: 1 }, moving: false, model: pm };
   }
 
   // ---------- A living town ----------
@@ -649,50 +598,48 @@ window.World = (function () {
   const trail = [];
   const critters = [];
   function buildCritters() {
-    const A = window.ART;
+    const M = window.Models;
     const flock = (n, box) => {
       for (let i = 0; i < n; i++) {
         const x = box[0] + Math.random() * (box[1] - box[0]), z = box[2] + Math.random() * (box[3] - box[2]);
-        critters.push({ kind: "chicken", box, x, z, tx: x, tz: z, wait: Math.random() * 3, speed: 1.1, t: Math.random(), face: "r" });
+        critters.push({ kind: "chicken", box, x, z, tx: x, tz: z, wait: Math.random() * 3, speed: 1.1 });
       }
     };
     flock(4, [-31, -24, -4.6, -2.4]);
     flock(3, [22.5, 26, -5.5, -2.6]);
-    critters.push({ kind: "dog", box: [-20, 20, -1.6, 13], x: -3, z: 0.5, tx: -3, tz: 0.5, wait: 2, speed: 2.4, t: 0, face: "r" });
-    const strips = { chicken: A.spriteStrip("chicken", "idle"), dog: A.spriteStrip("dog", "idle") };
-    const frames = { chicken: framesFrom(strips.chicken, 2), dog: framesFrom(strips.dog, 2) };
+    critters.push({ kind: "dog", box: [-20, 20, -1.6, 13], x: -3, z: 0.5, tx: -3, tz: 0.5, wait: 2, speed: 2.6 });
     critters.forEach((c) => {
-      const bb = makeBillboard(frames[c.kind], A.FW / A.FH, c.kind === "dog" ? 0.62 : 0.42);
-      c.frames = frames[c.kind]; c.mesh = bb.mesh; c.grp = bb.grp;
-      c.grp.position.set(c.x, 0, c.z);
+      c.model = c.kind === "dog" ? M.dog() : M.chicken();
+      c.model.root.position.set(c.x, 0, c.z);
+      M.face(c.model, Math.random() * 6.28, 1, 1);
+      scene.add(c.model.root);
     });
   }
   function stepCritters(dt) {
+    const M = window.Models;
     critters.forEach((c) => {
-      c.t += dt;
       const dx = c.tx - c.x, dz = c.tz - c.z, d = Math.hypot(dx, dz);
       let moving = false;
-      if (d > 0.1) {
+      if (!paused && d > 0.1) {
         const st = Math.min(d, c.speed * dt);
         const nx = c.x + (dx / d) * st, nz = c.z + (dz / d) * st;
-        if (!blockedRaw(nx, nz, 0.2)) { c.x = nx; c.z = nz; moving = true; } else { c.tx = c.x; c.tz = c.z; }
-        c.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
-      } else if ((c.wait -= dt) <= 0) {
+        if (!blockedRaw(nx, nz, 0.2)) { c.x = nx; c.z = nz; moving = true; M.face(c.model, yawOf(dx, dz), dt, 8); }
+        else { c.tx = c.x; c.tz = c.z; }
+      } else if (!paused && (c.wait -= dt) <= 0) {
         c.wait = 1.5 + Math.random() * 4;
-        if (c.kind === "dog" && player && Math.random() < 0.35) { c.tx = player.x + 1.2; c.tz = player.z + 0.8; }
-        else { c.tx = c.box[0] + Math.random() * (c.box[1] - c.box[0]); c.tz = c.box[2] + Math.random() * (c.box[3] - c.box[2]); }
+        c.sit = false;
+        if (c.kind === "dog" && player && Math.random() < 0.35) { c.tx = player.x + 1.0; c.tz = player.z + 0.9; c.sitAfter = true; }
+        else { c.tx = c.box[0] + Math.random() * (c.box[1] - c.box[0]); c.tz = c.box[2] + Math.random() * (c.box[3] - c.box[2]); c.sitAfter = false; }
       }
-      const f = moving ? Math.floor(c.t * 6) % 2 : (Math.floor(c.t / 0.9) % 3 === 0 ? 1 : 0);
-      const tex = c.frames[f][c.face];
-      if (c.mesh.material.map !== tex) c.mesh.material.map = tex;
-      c.grp.position.set(c.x, moving ? Math.abs(Math.sin(c.t * 14)) * 0.08 : 0, c.z);
+      if (!moving && c.sitAfter && d <= 0.1) { c.sit = true; if (player) M.face(c.model, yawOf(player.x - c.x, player.z - c.z), dt, 4); }
+      M.animate(c.model, dt, { moving, speed: c.speed, sit: c.sit, pant: c.kind === "dog" && (moving || c.sit) });
+      c.model.root.position.set(c.x, 0, c.z);
     });
   }
   function stepPeople(dt) {
+    const M = window.Models;
     for (const id in people) {
       const p = people[id];
-      if (!p.frames || !p.mesh) continue;
-      p.t += dt;
       const near = player && Math.hypot(player.x - p.x, player.z - p.z) < 3.2;
       let moving = false;
       if (!paused && !near && p.spots.length > 1) {
@@ -700,7 +647,7 @@ window.World = (function () {
         if (d > 0.06) {
           const st = Math.min(d, 1.1 * dt);
           p.x += (dx / d) * st; p.z += (dz / d) * st; moving = true;
-          p.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
+          M.face(p.model, yawOf(dx, dz), dt, 7);
         } else if ((p.wait -= dt) <= 0) {
           p.wait = 2.5 + Math.random() * 4;
           const opts = p.spots.filter(([x, z]) => Math.hypot(x - p.x, z - p.z) > 0.3);
@@ -708,36 +655,33 @@ window.World = (function () {
           if (pick) { p.tx = pick[0]; p.tz = pick[1]; }
         }
       }
-      if (near && player) p.face = (player.x - p.x) * RIGHT.x + (player.z - p.z) * RIGHT.z >= 0 ? "r" : "l";
-      const f = moving ? Math.floor(p.t * 5) % 2 : Math.floor(p.t / 0.7) % p.frames.length;
-      const tex = p.frames[f][p.face];
-      if (p.mesh.material.map !== tex) p.mesh.material.map = tex;
-      const bob = moving ? Math.abs(Math.sin(p.t * 9)) * 0.07 : (p.works ? Math.max(0, Math.sin(p.t * 5)) * 0.04 : 0);
-      p.grp.position.set(p.x, bob, p.z);
+      if (near) M.face(p.model, yawOf(player.x - p.x, player.z - p.z), dt, 5);
+      else if (!moving) M.face(p.model, p.homeYaw, dt, 2.5);
+      M.animate(p.model, dt, { moving, speed: 1.1, look: near ? player : null });
+      p.model.root.position.set(p.x, 0, p.z);
     }
   }
   function stepGoat(dt) {
     const g = goatState;
     if (!g) return;
-    g.t += dt;
-    let moving = false;
-    if (goatFollow && player) {
+    const M = window.Models;
+    let moving = false, speed = 0;
+    if (goatFollow && player && !paused) {
       const last = trail[trail.length - 1];
       if (!last || Math.hypot(last[0] - player.x, last[1] - player.z) > 0.35) { trail.push([player.x, player.z]); if (trail.length > 40) trail.shift(); }
       const target = trail[Math.max(0, trail.length - 6)];
       if (target) {
         const dx = target[0] - g.x, dz = target[1] - g.z, d = Math.hypot(dx, dz);
         if (d > 0.4 && Math.hypot(player.x - g.x, player.z - g.z) > 1.4) {
-          const st = Math.min(d, Math.max(2.5, d * 2.2) * dt);
+          speed = Math.max(2.5, d * 2.2);
+          const st = Math.min(d, speed * dt);
           g.x += (dx / d) * st; g.z += (dz / d) * st; moving = true;
-          g.face = dx * RIGHT.x + dz * RIGHT.z >= 0 ? "r" : "l";
-        }
+          M.face(g.model, yawOf(dx, dz), dt, 8);
+        } else if (player) M.face(g.model, yawOf(player.x - g.x, player.z - g.z), dt, 3);
       }
     }
-    const f = moving ? Math.floor(g.t * 7) % 2 : Math.floor(g.t / 0.8) % 2;
-    const tex = g.frames[f][g.face];
-    if (g.mesh.material.map !== tex) g.mesh.material.map = tex;
-    g.grp.position.set(g.x, moving ? Math.abs(Math.sin(g.t * 13)) * 0.1 : 0, g.z);
+    M.animate(g.model, dt, { moving, speed: speed / 2.5 });
+    g.model.root.position.set(g.x, 0, g.z);
   }
 
   // chimney smoke
@@ -879,7 +823,8 @@ window.World = (function () {
     for (const id in labels) {
       const p = id === "chair" ? { x: CHAIR.x, z: CHAIR.z } : people[id];
       if (!p) continue;
-      v3.set(p.x, id === "chair" ? 1.6 : SPRITE_H * BILLBOARD_STRETCH * 0.86 + 0.5, p.z).project(camera);
+      const top = id === "chair" ? 1.6 : (p.model ? p.model.H * 1.86 + (p.model.look.hat === "stovepipe" ? 0.75 : p.model.look.hat ? 0.45 : 0.3) : 2.2);
+      v3.set(p.x, top, p.z).project(camera);
       const x = (v3.x * 0.5 + 0.5) * w, y = (-v3.y * 0.5 + 0.5) * h;
       const el = labels[id];
       const on = x > -100 && x < w + 100 && y > -60 && y < h + 60;
@@ -972,7 +917,7 @@ window.World = (function () {
         if (avg > 1 / 38) setQuality("low");
       }
     }
-    if (player && player.mesh) {
+    if (player && player.model) {
       if (!paused) movePlayer(dt);
       animatePlayer(dt);
     }
@@ -1043,17 +988,10 @@ window.World = (function () {
   }
 
   function animatePlayer(dt) {
-    player.grp.position.set(player.x, 0, player.z);
-    // screen-space direction: positive dot with camera-right means walking right
-    const sr = player.dir.x * RIGHT.x + player.dir.z * RIGHT.z;
-    const su = player.dir.x * FWD.x + player.dir.z * FWD.z;
-    const set = su > 0.2 ? player.back : player.front;
-    if (player.moving) player.walkT += dt; else player.walkT = 0;
-    const seq = [0, 1, 2, 1];
-    const f = player.moving ? seq[Math.floor(player.walkT * 8) % 4] : 1;
-    const side = su > 0.2 ? (sr < 0 ? "r" : "l") : (sr >= 0 ? "r" : "l");
-    const tex = set[f][side];
-    if (player.mesh.material.map !== tex) player.mesh.material.map = tex;
+    const M = window.Models;
+    if (player.moving) M.face(player.model, yawOf(player.dir.x, player.dir.z), dt, 12);
+    M.animate(player.model, dt, { moving: player.moving, speed: 5.2 });
+    player.model.root.position.set(player.x, 0, player.z);
   }
 
   function updateNear() {
@@ -1096,7 +1034,7 @@ window.World = (function () {
   function resize() {
     const w = container.clientWidth, h = container.clientHeight;
     renderer.setSize(w, h, false);
-    targetView = Math.max(14, Math.min(28, h / 34));
+    targetView = Math.max(12, Math.min(24, h / 42));
   }
 
   function setQuality(q) {
@@ -1125,6 +1063,7 @@ window.World = (function () {
 
     scene = new T.Scene();
     gradient = makeGradient();
+    window.Models.init(gradient);
     camera = new T.OrthographicCamera(-10, 10, 10, -10, 0.1, 200);
     hemi = new T.HemisphereLight(0xfff4dc, 0x6f7a52, 0.75);
     scene.add(hemi);

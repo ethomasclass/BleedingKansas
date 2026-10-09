@@ -23,21 +23,23 @@ Progress saves in the browser automatically. "Start a new team" on the title scr
 | File | What it holds |
 | --- | --- |
 | `js/data.js` | Every word students read: intro, dialogue, notebook entries, case questions, reality card. Mirrors the script doc. |
-| `js/world.js` | The 3D town: layout, buildings, walking, collision, camera. |
+| `js/world.js` | The 3D town: layout, buildings, walking, collision, camera, time of day. |
+| `js/models.js` | The 3D people and animals, built in code from simple shapes and animated by hand. No model files. |
 | `js/game.js` | Screens and game flow: title, intro, talking scenes, notebook, solving the case, case report. |
-| `js/art.js` | Placeholder art drawn in code, and loading of real art. |
+| `js/art.js` | Character colors, placeholder portraits and backgrounds, intro maps, and loading of real art. |
+| `cast.html` | A development page that lines up every 3D character. Drag to turn them, press W to make them walk. |
 | `css/game.css` | All styling. |
 | `art/` | Real art from Google Flow (see below). |
 | `js/vendor/three.min.js` | three.js r149 (MIT license). |
 
 ## Adding Google Flow art
 
-1. Export images from Flow on the flat green background.
-2. Remove the green:
+The people walking around town are 3D models built in code, so they need no art. Flow art is only for the face-to-face scenes and the intro.
+
+1. Export images from Flow. Make portraits on the flat green background.
+2. Remove the green from portraits:
    ```
    python3 tools/key_green.py pike-proud.png pike-teary.png --out art/portraits
-   python3 tools/key_green.py pike-idle.png --frames 2 --out art/sprites
-   python3 tools/key_green.py player-walk-front.png player-walk-back.png --frames 3 --out art/sprites
    ```
    Backgrounds and intro scenes don't need this step. Copy them straight into `art/backgrounds` and `art/intro`.
 3. List each new file in `art/manifest.js`. The game uses placeholder art for anything not listed.
@@ -47,9 +49,7 @@ File names:
 | Kind | Name | Notes |
 | --- | --- | --- |
 | Portraits | `art/portraits/<character>-<expression>.png` | e.g. `pike-proud.png`. Expressions are listed in `js/data.js`. |
-| Townsperson sprites | `art/sprites/<character>-idle.png` | 2 frames side by side |
-| Player sprites | `art/sprites/player-walk-front.png`, `player-walk-back.png` | 3 frames side by side |
-| Goat | `art/portraits/senator-chewing.png`, `senator-bleating.png`, `art/sprites/senator-idle.png` | |
+| Goat | `art/portraits/senator-chewing.png`, `senator-bleating.png` | |
 | Backgrounds | `art/backgrounds/bg-<place>.png` | cabin, polling, tavern, store, post, forge, ferry, print, wagon, school |
 | Intro scenes | `art/intro/intro-<n>.png` | 2, 3, 4, 6, 7, 8, 9. Panels 1 and 5 are maps drawn in code. |
 

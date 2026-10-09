@@ -3,12 +3,9 @@
  *
  * Real art (from Google Flow) goes in /art with these names:
  *   art/portraits/<character>-<expression>.png   e.g. pike-proud.png
- *   art/sprites/<character>-idle.png             2 frames side by side
- *   art/sprites/player-walk-front.png            3 frames side by side
- *   art/sprites/player-walk-back.png             3 frames side by side
  *   art/backgrounds/bg-<place>.png               e.g. bg-tavern.png
  *   art/intro/intro-<n>.png                      e.g. intro-3.png
- * Backgrounds of portraits and sprites must already be transparent
+ * Portrait backgrounds must already be transparent
  * (run tools/key_green.py on Flow's green-screen images first).
  */
 (function () {
@@ -16,7 +13,7 @@
 
   const INK = "#1d1712";
 
-  // ---------- Character looks for placeholder portraits and sprites ----------
+  // ---------- Character looks (shared by portraits and the 3D models) ----------
   const LOOKS = {
     player:   { skin: "#e3bf9c", hair: "#4a3527", hairStyle: "short", hat: "wide", hatColor: "#5a4330", coat: "#7a5a3a", shirt: "#e9e2d0", pants: "#3d3a36", acc: "notebook" },
     mrsbrown: { skin: "#e8c4a0", hair: "#4a3020", hairStyle: "bunMiddle", coat: "#2f4a6b", shirt: "#2f4a6b", collar: "high", acc: "shawl", shawl: "#8f8a82", female: true, pants: "#2f4a6b" },
@@ -471,126 +468,6 @@
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 430" preserveAspectRatio="xMidYMid slice">${o}</svg>`;
   }
 
-  // ---------- Sprite frames for the 3D town (canvas) ----------
-  // Returns a canvas strip: frames side by side, each 96 x 176.
-  const FW = 96, FH = 176;
-  function spriteStrip(id, kind) {
-    const L = LOOKS[id] || LOOKS.player;
-    const frames = kind === "walk" ? 6 : 2; // walk: 3 front + 3 back
-    const c = document.createElement("canvas");
-    c.width = FW * frames; c.height = FH;
-    const g = c.getContext("2d");
-    for (let f = 0; f < frames; f++) {
-      g.save();
-      g.translate(f * FW, 0);
-      if (id === "senator") drawGoatSprite(g, f);
-      else if (id === "chicken") drawChickenSprite(g, f);
-      else if (id === "dog") drawDogSprite(g, f);
-      else if (kind === "walk") drawFigure(g, L, f < 3 ? "front" : "back", [-1, 0, 1][f % 3]);
-      else drawFigure(g, L, "front", 0, f === 1);
-      g.restore();
-    }
-    return c;
-  }
-
-  function drawFigure(g, L, facing, step, idleAlt) {
-    const cx = FW / 2;
-    g.lineJoin = "round"; g.lineCap = "round";
-    g.strokeStyle = INK; g.lineWidth = 3;
-    const bob = idleAlt ? 1.5 : Math.abs(step) * -2;
-    const w = L.build === "heavy" ? 1.2 : L.build === "thin" ? 0.88 : L.build === "strong" ? 1.1 : 1;
-    // legs
-    const legY = 118;
-    const leg = (dx, lift) => {
-      g.fillStyle = L.pants; g.beginPath(); g.rect(cx + dx - 7, legY - lift, 14, 46); g.fill(); g.stroke();
-      g.fillStyle = "#2a211b"; g.beginPath(); g.ellipse(cx + dx + (facing === "front" ? 2 : -2), legY + 46 - lift, 10, 5, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    };
-    if (L.female) {
-      g.fillStyle = L.coat; g.beginPath();
-      g.moveTo(cx - 30 * w, 168 + bob); g.lineTo(cx - 20 * w, 90 + bob); g.lineTo(cx + 20 * w, 90 + bob); g.lineTo(cx + 30 * w, 168 + bob); g.closePath(); g.fill(); g.stroke();
-    } else {
-      leg(-9, step < 0 ? 4 : 0);
-      leg(9, step > 0 ? 4 : 0);
-    }
-    // body
-    g.fillStyle = L.coat;
-    g.beginPath();
-    g.moveTo(cx - 22 * w, 124 + bob); g.lineTo(cx - 20 * w, 70 + bob); g.quadraticCurveTo(cx, 60 + bob, cx + 20 * w, 70 + bob); g.lineTo(cx + 22 * w, 124 + bob); g.closePath();
-    g.fill(); g.stroke();
-    if (L.acc === "apron" && facing === "front") { g.fillStyle = L.apron; g.beginPath(); g.rect(cx - 14 * w, 80 + bob, 28 * w, 50); g.fill(); g.stroke(); }
-    if (L.acc === "shawl") { g.fillStyle = L.shawl; g.beginPath(); g.moveTo(cx - 22, 72 + bob); g.lineTo(cx + 22, 72 + bob); g.lineTo(cx, 104 + bob); g.closePath(); g.fill(); g.stroke(); }
-    // arms
-    g.fillStyle = L.coat;
-    const swing = step * 5;
-    g.beginPath(); g.rect(cx - 30 * w, 74 + bob + swing, 10, 40); g.fill(); g.stroke();
-    g.beginPath(); g.rect(cx + 20 * w, 74 + bob - swing, 10, 40); g.fill(); g.stroke();
-    g.fillStyle = L.skin;
-    g.beginPath(); g.arc(cx - 25 * w, 116 + bob + swing, 5, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.arc(cx + 25 * w, 116 + bob - swing, 5, 0, Math.PI * 2); g.fill(); g.stroke();
-    if (L.acc === "notebook" && facing === "front") { g.fillStyle = "#7a2e2a"; g.beginPath(); g.rect(cx + 20 * w, 100 + bob - swing, 12, 16); g.fill(); g.stroke(); }
-    // head
-    g.fillStyle = L.skin;
-    g.beginPath(); g.ellipse(cx, 46 + bob, 15, 18, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = L.hair;
-    if (facing === "back") { g.beginPath(); g.ellipse(cx, 44 + bob, 15, 17, 0, 0, Math.PI * 2); g.fill(); g.stroke(); }
-    else if (L.hairStyle !== "balding") { g.beginPath(); g.ellipse(cx, 36 + bob, 15, 9, 0, Math.PI, 0); g.fill(); g.stroke(); }
-    if (L.hairStyle === "bunMiddle" || L.hairStyle === "bunTop") { g.beginPath(); g.arc(cx, (L.hairStyle === "bunTop" ? 24 : 34) + bob, 7, 0, Math.PI * 2); g.fill(); g.stroke(); }
-    if (L.facial && facing === "front") { g.fillStyle = L.hair; g.beginPath(); g.ellipse(cx, 58 + bob, 9, 5, 0, 0, Math.PI); g.fill(); }
-    if (facing === "front") {
-      g.fillStyle = INK;
-      g.beginPath(); g.arc(cx - 5, 46 + bob, 2, 0, Math.PI * 2); g.fill();
-      g.beginPath(); g.arc(cx + 5, 46 + bob, 2, 0, Math.PI * 2); g.fill();
-    }
-    // hats
-    if (L.hat) {
-      g.fillStyle = L.hatColor;
-      if (L.hat === "stovepipe") { g.beginPath(); g.ellipse(cx, 32 + bob, 20, 5, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.rect(cx - 12, 2 + bob, 24, 30); g.fill(); g.stroke(); }
-      else if (L.hat === "flatcap" || L.hat === "visor") { g.beginPath(); g.ellipse(cx + 3, 32 + bob, 17, 7, 0, Math.PI, 0); g.fill(); g.stroke(); }
-      else { g.beginPath(); g.ellipse(cx, 33 + bob, L.hat === "wide" ? 26 : 23, 6, 0, 0, Math.PI * 2); g.fill(); g.stroke(); g.beginPath(); g.ellipse(cx, 28 + bob, 13, 9, 0, Math.PI, 0); g.fill(); g.stroke(); }
-    }
-    if (L.acc === "crate") { g.fillStyle = "#9b7348"; g.beginPath(); g.save(); g.translate(cx + 26, 104 + bob); g.rotate(-0.5); g.rect(-6, -34, 12, 68); g.restore(); g.fill(); g.stroke(); }
-  }
-
-  function drawGoatSprite(g, f) {
-    g.save(); g.translate(0, 70); g.lineJoin = "round"; g.strokeStyle = INK; g.lineWidth = 3;
-    g.fillStyle = "#f2efe8";
-    g.beginPath(); g.ellipse(46, 62, 28, 18, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    [28, 40, 54, 66].forEach((x) => { g.beginPath(); g.rect(x - 3, 74, 6, 26); g.fill(); g.stroke(); });
-    g.beginPath(); g.ellipse(74, 44 + (f ? 2 : 0), 12, 14, 0.3, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.strokeStyle = "#8a7a62"; g.lineWidth = 4; g.beginPath(); g.moveTo(70, 32); g.lineTo(64, 20); g.moveTo(78, 32); g.lineTo(80, 20); g.stroke();
-    g.fillStyle = "#f1ead8"; g.strokeStyle = INK; g.lineWidth = 2; g.beginPath(); g.rect(78, 52, 16, 12); g.fill(); g.stroke();
-    g.restore();
-  }
-
-  function drawChickenSprite(g, f) {
-    // f = 1 is pecking
-    g.save(); g.translate(0, 96); g.lineJoin = "round"; g.strokeStyle = INK; g.lineWidth = 4;
-    g.fillStyle = "#c89a3c";
-    g.beginPath(); g.moveTo(40, 66); g.lineTo(40, 78); g.moveTo(54, 66); g.lineTo(54, 78); g.stroke();
-    g.fillStyle = "#f6f1e6";
-    g.beginPath(); g.ellipse(46, 50, 26, 18, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.moveTo(22, 46); g.lineTo(12, 30); g.lineTo(28, 38); g.closePath(); g.fill(); g.stroke();
-    const hy = f ? 52 : 26, hx = f ? 76 : 70;
-    g.beginPath(); g.arc(hx, hy, 12, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = "#c0392b"; g.beginPath(); g.arc(hx - 2, hy - 13, 5, 0, Math.PI * 2); g.fill();
-    g.fillStyle = "#e8a33a"; g.beginPath(); g.moveTo(hx + 10, hy - 2); g.lineTo(hx + 20, hy + 2); g.lineTo(hx + 10, hy + 5); g.closePath(); g.fill(); g.stroke();
-    g.fillStyle = INK; g.beginPath(); g.arc(hx + 3, hy - 2, 2.2, 0, Math.PI * 2); g.fill();
-    g.restore();
-  }
-  function drawDogSprite(g, f) {
-    // f = 1 is sitting with the tail up
-    g.save(); g.translate(0, 60); g.lineJoin = "round"; g.strokeStyle = INK; g.lineWidth = 4;
-    g.fillStyle = "#a8743f";
-    [24, 36, 58, 70].forEach((x, i) => { g.beginPath(); g.rect(x - 4, f && i < 2 ? 82 : 76, 8, f && i < 2 ? 18 : 30); g.fill(); g.stroke(); });
-    g.beginPath(); g.ellipse(46, 74, 30, 15, f ? -0.25 : 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.moveTo(18, 70); g.quadraticCurveTo(4, f ? 46 : 62, 10, f ? 40 : 58); g.stroke();
-    g.beginPath(); g.ellipse(74, 54, 14, 12, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.beginPath(); g.ellipse(86, 60, 9, 7, 0, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = "#6b4526"; g.beginPath(); g.ellipse(66, 46, 6, 11, -0.4, 0, Math.PI * 2); g.fill(); g.stroke();
-    g.fillStyle = INK; g.beginPath(); g.arc(92, 57, 3, 0, Math.PI * 2); g.fill(); g.beginPath(); g.arc(77, 51, 2.4, 0, Math.PI * 2); g.fill();
-    g.restore();
-  }
-
   // ---------- Real art loading ----------
   const cache = {};
   function probe(src) {
@@ -634,5 +511,5 @@
     });
   }
 
-  window.ART = { LOOKS, portraitSVG, backgroundSVG, mapSVG, spriteStrip, FW, FH, probe, svgURL, setPortrait, setBackground, setIntro };
+  window.ART = { LOOKS, portraitSVG, backgroundSVG, mapSVG, probe, svgURL, setPortrait, setBackground, setIntro };
 })();
