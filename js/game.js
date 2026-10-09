@@ -425,8 +425,11 @@
     $("notebook").hidden = true;
     if ($("scene").hidden && $("solve").hidden) pauseWorld(false);
   }
+  const TAB_TITLES = { clue: "Clues", history: "History notes", who: "Who decides?", timeline: "Timeline" };
   function renderNotebook() {
     document.querySelectorAll("#notebook [data-tab]").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === noteTab ? "true" : "false"));
+    $("noteH").textContent = TAB_TITLES[noteTab];
+    $("noteSide").innerHTML = notebookSide();
     const body = $("noteBody");
     const empty = (msg) => `<p class="note-empty">${msg}</p>`;
     if (noteTab === "clue") {
@@ -441,6 +444,22 @@
     } else {
       body.innerHTML = `<ol class="timeline">${D.intro.map((p) => `<li><span class="tl-year">${p.year}</span><span><strong>${p.title}.</strong> ${p.text}</span></li>`).join("")}</ol>`;
     }
+  }
+  // Right-hand page: where the case stands
+  function notebookSide() {
+    const clues = S.notes.clue.filter((id) => id.startsWith("c")).length;
+    const theory = (id) => S.flags[id]
+      ? `<li><span class="stud"></span><span><strong>${D.clues[id].title}.</strong> ${D.clues[id].text}</span></li>`
+      : `<li><span class="stud off"></span><span class="note-empty">Not heard yet</span></li>`;
+    const people = Object.entries(D.characters).filter(([, c]) => !c.bonus)
+      .map(([id, c]) => `<li><span class="stud${S.met[id] ? "" : " off"}"></span><span><strong>${c.name}</strong> &middot; ${c.role}</span></li>`).join("");
+    return `<div class="side-block"><p class="side-h">Next lead</p><p class="side-lead">${D.nextLead(has)}</p></div>
+      <div class="side-block"><p class="side-h">The case so far</p><div class="tally">
+        <div><strong>${clues}</strong><span>of 9 clues</span></div>
+        <div><strong>${S.notes.history.length}</strong><span>history notes</span></div>
+        <div><strong>${S.notes.who.length}</strong><span>answers to "Who decides?"</span></div></div></div>
+      <div class="side-block"><p class="side-h">Theories</p><ul class="side-list">${theory("tA")}${theory("tB")}</ul></div>
+      <div class="side-block"><p class="side-h">People you've met</p><ul class="side-list">${people}</ul></div>`;
   }
   function whoBoard() {
     const rows = Object.keys(D.who).map((id) => {

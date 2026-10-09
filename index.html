@@ -7,67 +7,87 @@
 <meta name="description" content="An investigation game set in Easton, Kansas Territory, 1856.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Zilla+Slab:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Zilla+Slab:wght@600;700&display=swap">
 <link rel="stylesheet" href="css/game.css">
+<script src="js/ui-textures.js"></script>
 </head>
 <body>
+<!-- Carved icons, drawn once and reused -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M3 5.5C5.5 4.3 8.6 4.2 11 5.6V19c-2.4-1.3-5.5-1.2-8 0z M21 5.5c-2.5-1.2-5.6-1.3-8 .1V19c2.4-1.3 5.5-1.2 8 0z" fill="currentColor"/></symbol>
+  <symbol id="i-lens" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6" fill="none" stroke="currentColor" stroke-width="3"/><path d="M14.5 14.5 20 20" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M10.3 2h3.4l.5 2.6 1.8.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.8 2.6.5v3.4l-2.6.5-.8 1.8 1.5 2.2-2.4 2.4-2.2-1.5-1.8.8-.5 2.6h-3.4l-.5-2.6-1.8-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.8L2 13.7v-3.4l2.6-.5.8-1.8-1.5-2.2 2.4-2.4 2.2 1.5 1.8-.8zM12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z" fill="currentColor" fill-rule="evenodd"/></symbol>
+  <symbol id="i-door" viewBox="0 0 24 24"><path d="M5 3h10v18H5z M13 12.5h-1.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M17 8l4 4-4 4M21 12h-7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
 <div id="app">
   <div id="world" aria-label="The town of Easton. Walk with W A S D or the arrow keys, or click the ground."></div>
   <div id="fallback" class="fallback" hidden></div>
 
   <header id="hud" class="hud" hidden>
-    <div class="hud-place">
+    <div class="hud-plaque">
       <span class="hud-title">Where Is Reese Brown?</span>
       <span class="hud-sub">Easton, Kansas Territory &middot; June 1856 &middot; <span id="hudTime">Afternoon</span></span>
     </div>
     <nav class="hud-actions" aria-label="Game">
-      <button type="button" id="noteBtn" class="btn btn-dark">Notebook <span id="noteBadge" class="badge" hidden></span></button>
-      <button type="button" id="solveBtn" class="btn btn-brass" disabled>Solve the case</button>
-      <button type="button" id="menuBtn" class="btn btn-dark" aria-label="Menu">Menu</button>
+      <button type="button" id="noteBtn" class="btn btn-tile"><svg class="ico" aria-hidden="true"><use href="#i-book"/></svg><span>Notebook</span><span id="noteBadge" class="badge" hidden></span></button>
+      <button type="button" id="solveBtn" class="btn btn-brass btn-tile" disabled><svg class="ico" aria-hidden="true"><use href="#i-lens"/></svg><span>Solve the case</span></button>
+      <button type="button" id="menuBtn" class="btn btn-tile btn-round" aria-label="Menu"><svg class="ico" aria-hidden="true"><use href="#i-gear"/></svg></button>
     </nav>
   </header>
 
   <div id="lead" class="lead" hidden></div>
   <button type="button" id="prompt" class="prompt" hidden></button>
   <div id="controlsHint" class="controls-hint" hidden>
-    <strong>Walk:</strong> W A S D, arrow keys, or click the ground<br>
-    <strong>Talk:</strong> walk up to someone and press <kbd>E</kbd>, or click them<br>
-    <strong>Zoom:</strong> mouse wheel
+    <div class="keypad" aria-hidden="true"><kbd class="k-w">W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div>
+    <div class="controls-text">
+      <p><strong>Walk</strong> with W A S D, the arrow keys, or by clicking the ground.</p>
+      <p><strong>Talk</strong> by walking up to someone and pressing <kbd>E</kbd>, or click them.</p>
+      <p><kbd>N</kbd> opens your notebook. The mouse wheel zooms.</p>
+    </div>
   </div>
 
-  <!-- Title -->
+  <!-- Title: a sign hanging over the town -->
   <section id="title" class="title-screen" aria-labelledby="titleH">
-    <div class="title-card">
-      <p class="eyebrow">A U.S. House committee investigation &middot; 1856</p>
-      <h1 id="titleH">Where Is<br>Reese Brown?</h1>
-      <p class="title-lede">In January, a free-state leader went to guard an election in Easton, Kansas Territory. He never came home. Congress has sent you to find out why.</p>
-      <label class="field-label" for="teamName">Team name</label>
-      <input id="teamName" type="text" maxlength="60" placeholder="For example: Table 4" autocomplete="off">
-      <div class="title-actions">
-        <button type="button" id="continueBtn" class="btn btn-brass btn-lg" hidden>Continue</button>
-        <button type="button" id="startBtn" class="btn btn-brass btn-lg">Start investigating</button>
+    <div class="sign">
+      <span class="rope rope-l" aria-hidden="true"></span>
+      <span class="rope rope-r" aria-hidden="true"></span>
+      <div class="sign-board">
+        <p class="sign-eyebrow">A U.S. House committee investigation &middot; 1856</p>
+        <h1 id="titleH" class="sign-title"><span>Where Is</span> Reese Brown?</h1>
+        <div class="sign-paper">
+          <p class="title-lede">In January, a free-state leader went to guard an election in Easton, Kansas Territory. He never came home. Congress has sent you to find out why.</p>
+          <label class="field-label" for="teamName">Team name</label>
+          <input id="teamName" type="text" maxlength="60" placeholder="For example: Table 4" autocomplete="off">
+        </div>
+        <div class="title-actions">
+          <button type="button" id="continueBtn" class="btn btn-brass btn-lg" hidden>Continue</button>
+          <button type="button" id="startBtn" class="btn btn-brass btn-lg">Start investigating</button>
+        </div>
+        <p class="title-note">The townspeople are made up. The events and numbers are based on real history.</p>
       </div>
-      <p class="title-note">The townspeople are made up. The events and numbers are based on real history.</p>
     </div>
   </section>
 
-  <!-- Intro -->
+  <!-- Intro: framed pictures on a wooden board -->
   <section id="intro" class="intro" hidden aria-labelledby="introTitle">
     <div class="intro-card">
-      <div id="introArt" class="intro-art"></div>
-      <div class="intro-copy">
+      <div class="intro-top">
+        <button type="button" class="tag" data-readaloud aria-pressed="false">Read aloud: off</button>
         <p id="introYear" class="intro-year"></p>
+        <button type="button" id="introSkip" class="tag">Skip intro</button>
+      </div>
+      <div class="intro-frame"><div id="introArt" class="intro-art"></div></div>
+      <div class="intro-copy">
         <h2 id="introTitle"></h2>
         <p id="introText" class="intro-text"></p>
         <p id="introHint" class="intro-hint"></p>
       </div>
       <div class="intro-nav">
-        <button type="button" id="introBack" class="btn btn-ghost">Back</button>
+        <button type="button" id="introBack" class="arrow arrow-l">Back</button>
         <div id="introDots" class="dots" aria-hidden="true"></div>
-        <button type="button" id="introNext" class="btn btn-brass">Next</button>
+        <button type="button" id="introNext" class="arrow arrow-r">Next</button>
       </div>
-      <button type="button" id="introSkip" class="link-btn intro-skip">Skip intro</button>
-      <button type="button" class="link-btn intro-read" data-readaloud aria-pressed="false">Read aloud: off</button>
     </div>
   </section>
 
@@ -76,7 +96,7 @@
     <div id="sceneBg" class="scene-bg"></div>
     <img id="scenePortrait" class="scene-portrait" alt="">
     <div id="scenePlace" class="scene-place"></div>
-    <button type="button" id="sceneLeave" class="btn btn-dark scene-leave">Leave</button>
+    <button type="button" id="sceneLeave" class="btn btn-dark scene-leave"><svg class="ico" aria-hidden="true"><use href="#i-door"/></svg>Leave</button>
     <div id="scenePapers" class="scene-papers" hidden></div>
     <div id="dialog" class="dialog">
       <div id="dialogName" class="dialog-name"></div>
@@ -89,34 +109,38 @@
     </div>
   </section>
 
-  <!-- Notebook -->
+  <!-- Notebook: an open book -->
   <section id="notebook" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="noteH">
-    <div class="panel-card paper">
-      <div class="panel-head">
-        <h2 id="noteH">Notebook</h2>
-        <button type="button" id="noteClose" class="btn btn-ghost">Close</button>
-      </div>
-      <div class="tabs" role="tablist">
+    <div class="book">
+      <div class="book-tabs" role="tablist" aria-label="Notebook sections">
         <button type="button" role="tab" data-tab="clue">Clues</button>
         <button type="button" role="tab" data-tab="history">History</button>
         <button type="button" role="tab" data-tab="who">Who decides?</button>
         <button type="button" role="tab" data-tab="timeline">Timeline</button>
       </div>
-      <div id="noteBody" class="panel-body"></div>
+      <div class="book-page book-left">
+        <h2 id="noteH" class="page-title">Clues</h2>
+        <div id="noteBody"></div>
+      </div>
+      <div class="book-page book-right">
+        <div id="noteSide"></div>
+      </div>
+      <span class="book-ribbon" aria-hidden="true"></span>
+      <button type="button" id="noteClose" class="btn btn-dark book-close">Close</button>
     </div>
   </section>
 
   <!-- Solve -->
   <section id="solve" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="solveH">
-    <div class="panel-card paper panel-wide">
+    <div class="panel-card panel-wide">
       <div class="panel-head">
         <h2 id="solveH">Solve the case</h2>
-        <button type="button" id="solveClose" class="btn btn-ghost">Back to town</button>
+        <button type="button" id="solveClose" class="btn btn-dark">Back to town</button>
       </div>
       <ol id="solveSteps" class="steps"></ol>
       <div id="solveBody" class="panel-body solve-body"></div>
       <div class="panel-foot">
-        <button type="button" id="solveBack" class="btn btn-ghost">Back</button>
+        <button type="button" id="solveBack" class="btn btn-dark">Back</button>
         <button type="button" id="solveNext" class="btn btn-brass">Next</button>
       </div>
     </div>
@@ -124,15 +148,17 @@
 
   <!-- Report -->
   <section id="report" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="reportH">
-    <div class="panel-card paper panel-wide">
+    <div class="panel-card panel-wide">
       <div class="panel-head">
         <h2 id="reportH">Case report</h2>
-        <button type="button" id="reportClose" class="btn btn-ghost">Back to town</button>
+        <button type="button" id="reportClose" class="btn btn-dark">Back to town</button>
       </div>
-      <p class="note-lead">Copy this and paste it into Google Classroom.</p>
-      <pre id="reportText" class="report-text"></pre>
+      <div class="panel-body">
+        <p class="note-lead">Copy this and paste it into Google Classroom.</p>
+        <pre id="reportText" class="report-text"></pre>
+      </div>
       <div class="panel-foot">
-        <button type="button" id="reportPrint" class="btn btn-ghost">Print</button>
+        <button type="button" id="reportPrint" class="btn btn-dark">Print</button>
         <button type="button" id="reportCopy" class="btn btn-brass">Copy report</button>
       </div>
     </div>
@@ -140,14 +166,14 @@
 
   <!-- Menu -->
   <section id="menu" class="panel" hidden role="dialog" aria-modal="true" aria-labelledby="menuH">
-    <div class="panel-card paper panel-narrow">
+    <div class="panel-card panel-narrow">
       <div class="panel-head"><h2 id="menuH">Menu</h2></div>
       <div class="menu-list">
         <button type="button" id="menuResume" class="btn btn-brass">Back to the game</button>
-        <button type="button" class="btn btn-ghost" data-readaloud aria-pressed="false">Read aloud: off</button>
-        <button type="button" id="qualityBtn" class="btn btn-ghost">Graphics: high</button>
-        <button type="button" id="menuIntro" class="btn btn-ghost">Replay the intro</button>
-        <button type="button" id="teacherBtn" class="btn btn-ghost">Teacher: open the case questions now</button>
+        <button type="button" class="btn btn-switch" data-readaloud aria-pressed="false">Read aloud: off</button>
+        <button type="button" id="qualityBtn" class="btn">Graphics: high</button>
+        <button type="button" id="menuIntro" class="btn">Replay the intro</button>
+        <button type="button" id="teacherBtn" class="btn">Teacher: open the case questions now</button>
         <button type="button" id="resetBtn" class="btn btn-danger">Start over</button>
       </div>
     </div>
